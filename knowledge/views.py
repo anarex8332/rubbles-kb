@@ -1,10 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.db.models import Q, Count
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.contrib import messages
-from .models import Section, Article, ArticleVersion, Comment, Bookmark, RecentlyViewed, Changelog, Notification
+from django.utils import timezone
+from .forms import ArticleForm
+from .models import (Section, Article, ArticleVersion, Comment, Bookmark, RecentlyViewed,
+                      Changelog, Notification, RelatedLink)
 
 
 def home(request):
@@ -21,6 +23,7 @@ def home(request):
     })
 
 
+@login_required
 def section_detail(request, slug):
     """Страница раздела со списком статей"""
     section = get_object_or_404(Section, slug=slug, is_active=True)
@@ -33,6 +36,7 @@ def section_detail(request, slug):
     })
 
 
+@login_required
 def article_detail(request, slug):
     """Страница статьи"""
     article = get_object_or_404(Article, slug=slug, status='published')
@@ -54,13 +58,16 @@ def article_detail(request, slug):
     if request.user.is_authenticated:
         is_bookmarked = Bookmark.objects.filter(user=request.user, article=article).exists()
 
+    from django.contrib.auth.models import User
     return render(request, 'knowledge/article.html', {
         'article': article,
         'comments': comments,
         'is_bookmarked': is_bookmarked,
+        'all_users': User.objects.order_by('username'),
     })
 
 
+@login_required
 def search(request):
     """Поиск по статьям"""
     query = request.GET.get('q', '').strip()
@@ -79,31 +86,19 @@ def search(request):
 @login_required
 def article_create(request):
     """Создание новой статьи"""
+    form = ArticleForm(request.POST or None)
     if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        content = request.POST.get('content', '').strip()
-        section_id = request.POST.get('section')
-        status = request.POST.get('status', 'published')
-        allow_comments = request.POST.get('allow_comments', 'true') == 'true'
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f'CREATE ARTICLE: title={repr(title)} content_len={len(content)} section={section_id} status={status}')
-        if title and content:
-            article = Article.objects.create(
-                title=title,
-                content=content,
-                content_markdown=content,
-                section_id=section_id or None,
-                author=request.user,
-                status=status,
-                allow_comments=allow_comments,
-            )
+        if form.is_valid():
+            article = form.save(commit=False)
+            article.author = request.user
+            article.save()
             messages.success(request, 'Статья успешно создана!')
             return redirect('knowledge:article_detail', slug=article.slug)
         messages.error(request, 'Заполните заголовок и содержание статьи.')
 
     sections = Section.objects.filter(is_active=True)
     return render(request, 'knowledge/article_form.html', {
+        'form': form,
         'sections': sections,
         'is_edit': False,
     })
@@ -114,26 +109,19 @@ def article_edit(request, slug):
     """Редактирование статьи"""
     article = get_object_or_404(Article, slug=slug)
 
+    # Форма не привязана к article (instance=article), чтобы в apply_new_version
+    # можно было прочитать СТАРЫЕ значения article.title/content до их замены.
+    form = ArticleForm(request.POST or None)
     if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        content = request.POST.get('content', '').strip()
-        if title and content:
-            # Сохраняем текущую версию в историю
-            ArticleVersion.objects.create(
-                article=article,
-                version_number=article.version,
-                title=article.title,
-                content=article.content,
-                content_markdown=article.content_markdown,
-                author=article.author,
+        if form.is_valid():
+            article.apply_new_version(
+                title=form.cleaned_data['title'],
+                content=form.cleaned_data['content'],
+                section=form.cleaned_data['section'],
                 change_summary=request.POST.get('change_summary', ''),
             )
-            article.title = title
-            article.content = content
-            article.content_markdown = content
-            article.section_id = request.POST.get('section') or article.section_id
-            article.version += 1
-            article.is_outdated = False
+            article.status = form.cleaned_data['status']
+            article.allow_comments = form.cleaned_data['allow_comments']
             article.save()
             messages.success(request, 'Статья обновлена!')
             return redirect('knowledge:article_detail', slug=article.slug)
@@ -142,6 +130,7 @@ def article_edit(request, slug):
     sections = Section.objects.filter(is_active=True)
     return render(request, 'knowledge/article_form.html', {
         'article': article,
+        'form': form,
         'sections': sections,
         'is_edit': True,
     })
@@ -164,20 +153,14 @@ def article_restore_version(request, slug, version_number):
     article = get_object_or_404(Article, slug=slug)
     version = get_object_or_404(ArticleVersion, article=article, version_number=version_number)
     if request.method == 'POST':
-        ArticleVersion.objects.create(
-            article=article,
-            version_number=article.version,
-            title=article.title,
-            content=article.content,
-            content_markdown=article.content_markdown,
-            author=request.user,
+        article.apply_new_version(
+            title=version.title,
+            content=version.content,
+            content_markdown=version.content_markdown,
+            snapshot_author=request.user,
             change_summary=f'Откат к версии {version.version_number}',
+            mark_fresh=False,
         )
-        article.title = version.title
-        article.content = version.content
-        article.content_markdown = version.content_markdown
-        article.version += 1
-        article.save()
         messages.success(request, f'Статья восстановлена к версии {version_number}')
         return redirect('knowledge:article_detail', slug=article.slug)
     return render(request, 'knowledge/version_restore.html', {
@@ -203,38 +186,14 @@ def add_comment(request, slug):
     if request.method == 'POST' and article.allow_comments:
         text = request.POST.get('text', '').strip()
         if text:
-            comment = Comment.objects.create(article=article, author=request.user, text=text)
-            
-            # Уведомление автору статьи о новом комментарии
-            if article.author and article.author != request.user:
-                Notification.objects.create(
-                    user=article.author,
-                    article=article,
-                    message=f'Новый комментарий от {request.user.username} к статье "{article.title[:50]}"',
-                    notification_type='comment_added',
-                    from_user=request.user,
-                )
-            
-            # Уведомления пользователям, упомянутым через @username
-            import re
-            mentions = re.findall(r'@(\w+)', text)
-            for username in mentions:
-                try:
-                    mentioned_user = User.objects.get(username=username)
-                    if mentioned_user != request.user:
-                        Notification.objects.create(
-                            user=mentioned_user,
-                            article=article,
-                            message=f'{request.user.username} упомянул вас в комментарии к статье "{article.title[:50]}"',
-                            notification_type='comment_mention',
-                            from_user=request.user,
-                        )
-                except User.DoesNotExist:
-                    pass
-    
+            # Уведомления автору статьи и упомянутым через @username создаёт
+            # сигнал notify_on_comment в knowledge/models.py
+            Comment.objects.create(article=article, author=request.user, text=text)
+
     return redirect('knowledge:article_detail', slug=slug)
 
 
+@login_required
 def changelog_list(request):
     """Список релизов"""
     changelogs = Changelog.objects.filter(is_published=True)
@@ -255,6 +214,97 @@ def mark_article_outdated(request, slug):
             article.save()
             messages.warning(request, 'Статья помечена как устаревшая')
     return redirect('knowledge:article_detail', slug=slug)
+
+
+@login_required
+def confirm_article_fresh(request, slug):
+    """КЗ-04: подтвердить корректность содержания на текущий момент
+    (не путать с фактом правки текста — это отдельное действие проверки)."""
+    article = get_object_or_404(Article, slug=slug)
+    if request.method == 'POST':
+        article.last_verified_at = timezone.now()
+        article.last_verified_by = request.user
+        article.is_outdated = False
+        article.save()
+        messages.success(request, 'Актуальность подтверждена')
+    return redirect('knowledge:article_detail', slug=slug)
+
+
+@login_required
+def set_responsible(request, slug):
+    """КЗ-07: назначить ответственного за содержание статьи"""
+    article = get_object_or_404(Article, slug=slug)
+    if request.method == 'POST':
+        user_id = request.POST.get('responsible')
+        if user_id:
+            from django.contrib.auth.models import User
+            article.responsible = get_object_or_404(User, pk=user_id)
+        else:
+            article.responsible = None
+        article.save()
+        messages.success(request, 'Ответственный обновлён')
+    return redirect('knowledge:article_detail', slug=slug)
+
+
+@login_required
+def add_related_link(request, slug):
+    """ФТ-05/КЗ-05: привязать статью к БТ/ТЗ, задаче YouTrack, Git или другому источнику"""
+    article = get_object_or_404(Article, slug=slug)
+    if request.method == 'POST':
+        url = request.POST.get('url', '').strip()
+        link_type = request.POST.get('link_type', 'other')
+        label = request.POST.get('label', '').strip()
+        if url:
+            RelatedLink.objects.create(article=article, url=url, link_type=link_type, label=label)
+            messages.success(request, 'Связь добавлена')
+        else:
+            messages.error(request, 'Укажите ссылку')
+    return redirect('knowledge:article_detail', slug=slug)
+
+
+@login_required
+def delete_related_link(request, slug, link_id):
+    article = get_object_or_404(Article, slug=slug)
+    if request.method == 'POST':
+        RelatedLink.objects.filter(pk=link_id, article=article).delete()
+        messages.success(request, 'Связь удалена')
+    return redirect('knowledge:article_detail', slug=slug)
+
+
+@login_required
+def toggle_comment_resolved(request, slug, comment_id):
+    """ФТ-08: отметить обсуждение разрешённым, сохранив его историю"""
+    article = get_object_or_404(Article, slug=slug)
+    comment = get_object_or_404(Comment, pk=comment_id, article=article)
+    if request.method == 'POST':
+        if comment.is_resolved:
+            comment.is_resolved = False
+            comment.resolved_by = None
+            comment.resolved_at = None
+        else:
+            comment.is_resolved = True
+            comment.resolved_by = request.user
+            comment.resolved_at = timezone.now()
+        comment.save()
+    return redirect('knowledge:article_detail', slug=slug)
+
+
+@login_required
+def status_overview(request):
+    """ФТ-11: контроль состояния — списки материалов без ответственного,
+    требующих пересмотра и с нерассмотренными замечаниями."""
+    without_responsible = Article.objects.filter(
+        responsible__isnull=True, status='published'
+    ).order_by('-updated_at')
+    outdated = Article.objects.filter(is_outdated=True).order_by('-updated_at')
+    with_unresolved_comments = Article.objects.filter(
+        comments__is_active=True, comments__is_resolved=False
+    ).distinct().order_by('-updated_at')
+    return render(request, 'knowledge/status_overview.html', {
+        'without_responsible': without_responsible,
+        'outdated': outdated,
+        'with_unresolved_comments': with_unresolved_comments,
+    })
 
 
 @login_required

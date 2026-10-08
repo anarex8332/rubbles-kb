@@ -105,22 +105,20 @@
                                 </button>
                             </div>
                             <div class="section-children section-children--hidden">
-                                {% if section.children.active %}
-                                    {% for child in section.children.all %}
-                                        {% if child.is_active %}
-                                            <a href="{% url 'knowledge:section_detail' child.slug %}" class="nav-link nav-link--child">
-                                                {{ child.icon|default:'▸' }} {{ child.name }}
-                                            </a>
-                                            {% with child_articles=child.articles.all %}
-                                                {% if child_articles %}
-                                                    {% for art in child_articles|slice:":5" %}
-                                                        <a href="{% url 'knowledge:article_detail' art.slug %}" class="nav-link nav-link--article">{{ art.title|truncatechars:40 }}</a>
-                                                    {% endfor %}
-                                                {% endif %}
-                                            {% endwith %}
-                                        {% endif %}
-                                    {% endfor %}
-                                {% endif %}
+                                {% for child in section.children.all %}
+                                    {% if child.is_active %}
+                                        <a href="{% url 'knowledge:section_detail' child.slug %}" class="nav-link nav-link--child">
+                                            {{ child.icon|default:'▸' }} {{ child.name }}
+                                        </a>
+                                        {% with child_articles=child.articles.all %}
+                                            {% if child_articles %}
+                                                {% for art in child_articles|slice:":5" %}
+                                                    <a href="{% url 'knowledge:article_detail' art.slug %}" class="nav-link nav-link--article">{{ art.title|truncatechars:40 }}</a>
+                                                {% endfor %}
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
+                                {% endfor %}
                                 {% with section_articles=section.articles.all %}
                                     {% if section_articles %}
                                         {% for art in section_articles|slice:":5" %}
@@ -138,6 +136,12 @@
                 <div class="nav-section">
                     <div class="nav-title"><i class="fas fa-code-branch"></i><a href="{% url 'knowledge:changelog' %}">Релизы</a></div>
                 </div>
+
+                {% if user.is_authenticated %}
+                <div class="nav-section">
+                    <div class="nav-title"><i class="fas fa-list-check"></i><a href="{% url 'knowledge:status_overview' %}">Контроль состояния</a></div>
+                </div>
+                {% endif %}
 
                 {% if user.is_authenticated %}
                     <div class="section-wrapper sidebar-collapsible">
@@ -196,9 +200,30 @@
     <script src="{% static 'js/main.js' %}"></script>
     <script>
         function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('sidebar--open');
-            document.getElementById('main').classList.toggle('main--shifted');
+            var sidebar = document.getElementById('sidebar');
+            var main = document.getElementById('main');
+            if (window.innerWidth <= 768) {
+                // Мобильный режим: сайдбар выезжает поверх контента
+                sidebar.classList.toggle('sidebar--open');
+                main.classList.toggle('main--shifted');
+            } else {
+                // Десктоп: сайдбар сворачивается, контент занимает всю ширину
+                var collapsed = sidebar.classList.toggle('sidebar--collapsed');
+                main.classList.toggle('main--full');
+                try {
+                    localStorage.setItem('kb_sidebar_collapsed', collapsed ? '1' : '0');
+                } catch (e) {}
+            }
         }
+
+        (function restoreSidebarState() {
+            try {
+                if (window.innerWidth > 768 && localStorage.getItem('kb_sidebar_collapsed') === '1') {
+                    document.getElementById('sidebar').classList.add('sidebar--collapsed');
+                    document.getElementById('main').classList.add('main--full');
+                }
+            } catch (e) {}
+        })();
 
         // Функция переключения секции
         function toggleSection(wrapper, btn) {
@@ -252,7 +277,17 @@
                 });
             });
 
-            // Ссылки внутри заголовка — обычная навигация, ничего не блокируем
+            // Клик по названию раздела в списке «Разделы» — тоже разворачивает список,
+            // а не уходит на отдельную страницу (так разделы ведут себя как папки).
+            document.querySelectorAll('#sidebar-sections .section-header__link').forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var wrapper = this.closest('.section-wrapper');
+                    if (!wrapper) return;
+                    var btn = wrapper.querySelector('.section-header__chevron-btn');
+                    toggleSection(wrapper, btn);
+                });
+            });
         });
     </script>
     {% block extra_scripts %}{% endblock %}

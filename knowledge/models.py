@@ -1,5 +1,9 @@
+import re
+
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils import timezone
 from slugify import slugify
 from mptt.models import MPTTModel, TreeForeignKey
@@ -46,14 +50,27 @@ class Article(models.Model):
     title = models.CharField('Заголовок', max_length=500)
     slug = models.SlugField('Slug', max_length=500, unique=True, blank=True)
     content = models.TextField('Содержимое (HTML)')
+    # Редактор — contenteditable HTML (editor.js), markdown-версию он не формирует;
+    # поле оставлено под будущий markdown-источник и сейчас не заполняется.
     content_markdown = models.TextField('Содержимое (Markdown)', blank=True)
     section = TreeForeignKey(Section, on_delete=models.CASCADE, related_name='articles',
                              verbose_name='Раздел', null=True, blank=True)
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,
                                related_name='articles', verbose_name='Автор')
+    # КЗ-07: проверяющий/ответственный за содержание — отдельно от автора,
+    # т.к. по регламенту их может назначать тимлид, а не сам автор статьи.
+    responsible = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='responsible_articles',
+                                    verbose_name='Ответственный за содержание')
     status = models.CharField('Статус', max_length=20, choices=STATUS_CHOICES, default='published')
     is_outdated = models.BooleanField('Устаревшая', default=False)
     outdated_notification_sent = models.BooleanField(default=False)
+    # КЗ-04: дата именно подтверждения корректности, а не дата правки текста —
+    # правка опечатки не означает, что содержание перепроверено.
+    last_verified_at = models.DateTimeField('Дата подтверждения актуальности', null=True, blank=True)
+    last_verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                         related_name='verified_articles',
+                                         verbose_name='Кто подтвердил актуальность')
     version = models.PositiveIntegerField('Версия', default=1)
     allow_comments = models.BooleanField('Разрешить комментарии', default=True)
     views_count = models.PositiveIntegerField('Просмотры', default=0)
@@ -80,8 +97,61 @@ class Article(models.Model):
             self.slug = slug
         super().save(*args, **kwargs)
 
+    def apply_new_version(self, *, title, content, section=None, content_markdown='',
+                           snapshot_author=None, change_summary='', mark_fresh=True):
+        """Сохраняет текущее состояние статьи как версию истории и применяет новые данные.
+
+        Используется и при редактировании, и при откате к старой версии — раньше
+        обе view-функции дублировали один и тот же блок кода.
+        """
+        ArticleVersion.objects.create(
+            article=self,
+            version_number=self.version,
+            title=self.title,
+            content=self.content,
+            content_markdown=self.content_markdown,
+            author=snapshot_author if snapshot_author is not None else self.author,
+            change_summary=change_summary,
+        )
+        self.title = title
+        self.content = content
+        self.content_markdown = content_markdown
+        if section is not None:
+            self.section = section
+        self.version += 1
+        if mark_fresh:
+            self.is_outdated = False
+        self.save()
+
     def __str__(self):
         return self.title
+
+
+class RelatedLink(models.Model):
+    """Связь статьи с БТ, ТЗ, задачей YouTrack, Git или другим внешним источником (ФТ-05, КЗ-05)"""
+    LINK_TYPES = [
+        ('bt', 'БТ'),
+        ('tz', 'ТЗ'),
+        ('youtrack', 'Задача YouTrack'),
+        ('git', 'Git'),
+        ('docs', 'Документация'),
+        ('other', 'Другое'),
+    ]
+
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='related_links')
+    link_type = models.CharField('Тип связи', max_length=20, choices=LINK_TYPES, default='other')
+    url = models.URLField('Ссылка', max_length=1000)
+    label = models.CharField('Назначение связи', max_length=300, blank=True,
+                             help_text='Например: БТ по доработке X, задача на реализацию Y')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Связанный источник'
+        verbose_name_plural = 'Связанные источники'
+        ordering = ['link_type', 'created_at']
+
+    def __str__(self):
+        return f'{self.get_link_type_display()}: {self.label or self.url}'
 
 
 class ArticleVersion(models.Model):
@@ -113,6 +183,11 @@ class Comment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField('Активен', default=True)
+    # ФТ-08: обсуждение можно отметить разрешённым, не удаляя его историю
+    is_resolved = models.BooleanField('Разрешено', default=False)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='resolved_comments')
+    resolved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Комментарий'
@@ -199,3 +274,33 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{'✓' if self.is_read else '○'}] {self.user.username}: {self.message[:50]}"
+
+
+@receiver(post_save, sender=Comment)
+def notify_on_comment(sender, instance, created, **kwargs):
+    """Создаёт уведомления автору статьи и упомянутым через @username при новом комментарии"""
+    if not created:
+        return
+    comment = instance
+    if comment.article.author and comment.article.author != comment.author:
+        Notification.objects.create(
+            user=comment.article.author,
+            article=comment.article,
+            message=f'Новый комментарий от {comment.author.username} к статье "{comment.article.title[:50]}"',
+            notification_type='comment_added',
+            from_user=comment.author,
+        )
+
+    for username in re.findall(r'@(\w+)', comment.text):
+        try:
+            mentioned_user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            continue
+        if mentioned_user != comment.author:
+            Notification.objects.create(
+                user=mentioned_user,
+                article=comment.article,
+                message=f'{comment.author.username} упомянул вас в комментарии к статье "{comment.article.title[:50]}"',
+                notification_type='comment_mention',
+                from_user=comment.author,
+            )

@@ -1,10 +1,7 @@
 
-!*/migrations/__init__.pyvenv_local/
 # Django
 # Environment
 # IDE
-# Keep __init__.py, ignore the rest
-# Migrations
 # OS
 # Python
 *.egg
@@ -13,7 +10,6 @@
 *.sqlite3
 *.swo
 *.swp
-*/migrations/*.py
 .DS_Store
 .eggs/
 .env

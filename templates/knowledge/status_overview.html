@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Контроль состояния — RUBBLES KB{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="{% url 'knowledge:home' %}">Главная</a>
+    <span class="breadcrumbs__sep">/</span>
+    <span>Контроль состояния</span>
+</div>
+
+<div class="page-header">
+    <h1 class="page-title"><i class="fas fa-list-check"></i> Контроль состояния</h1>
+    <p class="page-description">ФТ-11: материалы без ответственного, требующие пересмотра и с нерассмотренными замечаниями</p>
+</div>
+
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card__header">
+        <h2><i class="fas fa-user-slash"></i> Без ответственного за содержание ({{ without_responsible|length }})</h2>
+    </div>
+    <div class="card__body">
+        {% if without_responsible %}
+            <ul class="article-list">
+                {% for a in without_responsible %}
+                    <li class="article-list__item">
+                        <a href="{% url 'knowledge:article_detail' a.slug %}" class="article-list__link">
+                            <span class="article-list__title">{{ a.title }}</span>
+                            <span class="article-list__meta">
+                                <span>{{ a.section.name|default:'Без раздела' }}</span>
+                                <span>{{ a.updated_at|date:"d.m.Y" }}</span>
+                            </span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state"><div class="empty-state__text">Все опубликованные материалы имеют ответственного</div></div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card__header">
+        <h2><i class="fas fa-clock-rotate-left"></i> Требуют пересмотра ({{ outdated|length }})</h2>
+    </div>
+    <div class="card__body">
+        {% if outdated %}
+            <ul class="article-list">
+                {% for a in outdated %}
+                    <li class="article-list__item">
+                        <a href="{% url 'knowledge:article_detail' a.slug %}" class="article-list__link">
+                            <span class="article-list__title">{{ a.title }}</span>
+                            <span class="article-list__meta">
+                                <span>{{ a.section.name|default:'Без раздела' }}</span>
+                                <span>{{ a.updated_at|date:"d.m.Y" }}</span>
+                            </span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state"><div class="empty-state__text">Нет материалов, помеченных устаревшими</div></div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card__header">
+        <h2><i class="fas fa-comment-dots"></i> С нерассмотренными замечаниями ({{ with_unresolved_comments|length }})</h2>
+    </div>
+    <div class="card__body">
+        {% if with_unresolved_comments %}
+            <ul class="article-list">
+                {% for a in with_unresolved_comments %}
+                    <li class="article-list__item">
+                        <a href="{% url 'knowledge:article_detail' a.slug %}" class="article-list__link">
+                            <span class="article-list__title">{{ a.title }}</span>
+                            <span class="article-list__meta">
+                                <span>{{ a.section.name|default:'Без раздела' }}</span>
+                                <span>{{ a.updated_at|date:"d.m.Y" }}</span>
+                            </span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state"><div class="empty-state__text">Нерассмотренных замечаний нет</div></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
