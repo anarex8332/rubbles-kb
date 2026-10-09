@@ -182,6 +182,8 @@ class Comment(models.Model):
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='comments')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
     text = models.TextField('Текст комментария')
+    text_html = models.TextField(blank=True)
+    sticker = models.CharField(max_length=30, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField('Активен', default=True)
@@ -306,3 +308,10 @@ def notify_on_comment(sender, instance, created, **kwargs):
                 notification_type='comment_mention',
                 from_user=comment.author,
             )
+
+
+class CommentAttachment(models.Model):
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='comments/%Y/%m/')
+    name = models.CharField(max_length=255)
+    is_image = models.BooleanField(default=False)

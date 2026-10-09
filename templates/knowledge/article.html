@@ -123,19 +123,10 @@
                         <h2>Обсуждение <span class="muted">{{ comments|length }}</span>
                         </h2>
                     </div>
-                    <form action="{% url 'knowledge:add_comment' article.slug %}" method="post" id="comment-form" class="comment-form">{% csrf_token %}
-                        <label class="sr-only" for="comment-text">Комментарий</label>
-                        <textarea id="comment-text" name="text" rows="3" required placeholder="Задайте вопрос или поделитесь уточнением…">
-                        </textarea>
-                        <div class="comment-form__footer">
-                            <span class="form-help">Enter — отправить, Shift+Enter — новая строка</span>
-                            <button class="btn btn-primary btn-sm" type="submit">Отправить {% icon 'send' %}
-                            </button>
-                        </div>
-                    </form>
+                    {% include 'knowledge/_comment_editor.html' %}
                     <div class="comments-list">
                         {% for comment in comments %}
-                            <article class="comment {% if comment.is_resolved %}comment--resolved{% endif %}">
+                            <article id="comment-{{ comment.pk }}" class="comment {% if comment.is_resolved %}comment--resolved{% endif %}">
                                 <div class="comment__header">
                                     <strong>{{ comment.author.username }}</strong>
                                     <time>{{ comment.created_at|date:'d.m.Y H:i' }}</time>
@@ -143,7 +134,12 @@
                                         <span class="tag tag-success">Разрешено</span>
                                     {% endif %}
                                 </div>
-                                <p class="comment__text">{{ comment.text }}</p>
+                                <div class="comment__text">{% if comment.text_html %}{{ comment.text_html|safe }}{% else %}{{ comment.text|linebreaksbr }}{% endif %}</div>
+                                {% if comment.sticker %}<div class="comment-sticker" data-sticker="{{ comment.sticker }}"></div>{% endif %}
+                                <div class="comment-attachments">{% for attachment in comment.attachments.all %}
+                                    <a href="{% url 'knowledge:comment_attachment' attachment.pk %}" target="_blank" rel="noopener">{% if attachment.is_image %}<img src="{% url 'knowledge:comment_attachment' attachment.pk %}" alt="{{ attachment.name }}" loading="lazy">{% endif %}<span>{{ attachment.name }}</span></a>
+                                {% endfor %}</div>
+                                {% if comment.author_id == user.pk %}<details class="comment-edit"><summary>Редактировать</summary>{% include 'knowledge/_comment_editor.html' with editing=True %}</details>{% endif %}
                                 <form action="{% url 'knowledge:toggle_comment_resolved' article.slug comment.pk %}" method="post">{% csrf_token %}
                                     <button type="submit" class="btn btn-link btn-sm">
                                         {% if comment.is_resolved %}Вернуть в обсуждение{% else %}Отметить разрешённым{% endif %}
@@ -168,6 +164,7 @@
     </div>
 {% endblock %}
 {% block extra_scripts %}
+    <script src="{% static 'js/comments.js' %}" defer></script>
     <script src="{% static 'vendor/mermaid.min.js' %}">
     </script>
     <script src="{% static 'js/article.js' %}">

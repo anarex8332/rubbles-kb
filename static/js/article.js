@@ -30,14 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.textContent = 'Скопируйте адрес из строки браузера.';
             }
         });
-    const form = document.getElementById('comment-form'),
-        field = document.getElementById('comment-text');
-    field?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-            e.preventDefault();
-            if (field.value.trim()) form.requestSubmit();
-        }
-    });
     const diagrams = [...content.querySelectorAll('.mermaid')].map((node) => ({
         node,
         source: node.textContent,

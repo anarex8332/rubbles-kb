@@ -1,8 +1,38 @@
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-theme-select]').forEach((select) => {
-        select.value = RubblesTheme.preference;
-        select.addEventListener('change', () => RubblesTheme.set(select.value));
-    });
+    function syncTheme() {
+        document
+            .querySelectorAll('[data-theme-toggle]')
+            .forEach((button) =>
+                button.setAttribute(
+                    'aria-checked',
+                    String(document.documentElement.dataset.theme === 'dark'),
+                ),
+            );
+        document.querySelectorAll('[data-theme-system]').forEach((button) => {
+            button.setAttribute(
+                'aria-pressed',
+                String(RubblesTheme.preference === 'system'),
+            );
+        });
+    }
+    document
+        .querySelectorAll('[data-theme-toggle]')
+        .forEach((button) =>
+            button.addEventListener('click', () =>
+                RubblesTheme.set(
+                    document.documentElement.dataset.theme === 'dark'
+                        ? 'light'
+                        : 'dark',
+                ),
+            ),
+        );
+    document
+        .querySelectorAll('[data-theme-system]')
+        .forEach((button) =>
+            button.addEventListener('click', () => RubblesTheme.set('system')),
+        );
+    document.addEventListener('rubbles:theme', syncTheme);
+    syncTheme();
     const receipt = document.getElementById('editor-save-receipt');
     if (receipt)
         try {

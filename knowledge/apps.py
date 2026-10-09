@@ -5,7 +5,9 @@ def run_seed_data(sender, **kwargs):
     """Автоматически запускает seed_data после миграций"""
     from django.core.management import call_command
     try:
-        call_command('seed_data')
+        from .models import Article, Section
+        if not Article.objects.exists() and not Section.objects.exists():
+            call_command('seed_data')
     except Exception:
         pass  # Игнорируем ошибки при первом запуске (таблицы ещё нет)
 

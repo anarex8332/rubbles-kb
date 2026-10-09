@@ -53,7 +53,7 @@ def article_detail(request, slug):
             defaults={'viewed_at': __import__('django').utils.timezone.now()}
         )
 
-    comments = article.comments.filter(is_active=True)
+    comments = article.comments.filter(is_active=True).select_related('author').prefetch_related('attachments')
     is_bookmarked = False
     if request.user.is_authenticated:
         is_bookmarked = Bookmark.objects.filter(user=request.user, article=article).exists()
@@ -71,12 +71,8 @@ def article_detail(request, slug):
 def search(request):
     """Поиск по статьям"""
     query = request.GET.get('q', '').strip()
-    articles = Article.objects.none()
-    if query:
-        articles = Article.objects.filter(
-            Q(status='published') &
-            (Q(title__icontains=query) | Q(content__icontains=query))
-        ).distinct()
+    from .search_tools import ranked_articles
+    articles = ranked_articles(query) if query else []
     return render(request, 'knowledge/search.html', {
         'query': query,
         'articles': articles,
@@ -203,16 +199,61 @@ def toggle_bookmark(request, slug):
 
 @login_required
 def add_comment(request, slug):
-    """Добавить комментарий к статье"""
-    article = get_object_or_404(Article, slug=slug)
-    if request.method == 'POST' and article.allow_comments:
-        text = request.POST.get('text', '').strip()
-        if text:
-            # Уведомления автору статьи и упомянутым через @username создаёт
-            # сигнал notify_on_comment в knowledge/models.py
-            Comment.objects.create(article=article, author=request.user, text=text)
+    return save_comment(request, slug)
 
-    return redirect('knowledge:article_detail', slug=slug)
+
+@login_required
+def edit_comment(request, slug, comment_id):
+    return save_comment(request, slug, comment_id)
+
+
+def save_comment(request, slug, comment_id=None):
+    from django.core.exceptions import ValidationError
+    from django.db import transaction
+    from .comment_tools import clean_comment
+    from .models import CommentAttachment
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Нужен POST-запрос.'}, status=405)
+    article = get_object_or_404(Article, slug=slug, status='published')
+    if not article.allow_comments:
+        return JsonResponse({'error': 'Комментарии отключены.'}, status=403)
+    comment = get_object_or_404(Comment, pk=comment_id, article=article, author=request.user, is_active=True) if comment_id else None
+    removed = request.POST.getlist('remove_attachment')
+    remaining = comment.attachments.exclude(pk__in=[x for x in removed if x.isdigit()]).count() if comment else 0
+    try:
+        text, html, sticker, files = clean_comment(request.POST, request.FILES.getlist('files'), remaining)
+    except ValidationError as error:
+        return JsonResponse({'error': ' '.join(error.messages)}, status=400)
+    with transaction.atomic():
+        if comment is None:
+            comment = Comment.objects.create(article=article, author=request.user, text=text, text_html=html, sticker=sticker)
+        else:
+            comment.text, comment.text_html, comment.sticker = text, html, sticker
+            comment.save(update_fields=['text', 'text_html', 'sticker', 'updated_at'])
+            comment.attachments.filter(pk__in=[x for x in removed if x.isdigit()]).delete()
+        for file, is_image in files:
+            CommentAttachment.objects.create(comment=comment, file=file, name=file.name[:255], is_image=is_image)
+    return JsonResponse({'ok': True, 'id': comment.pk})
+
+
+@login_required
+def comment_attachment(request, attachment_id):
+    from django.http import FileResponse
+    from .models import CommentAttachment
+    attachment = get_object_or_404(CommentAttachment, pk=attachment_id, comment__is_active=True, comment__article__status='published')
+    response = FileResponse(attachment.file.open('rb'), as_attachment=not attachment.is_image, filename=attachment.name)
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Cache-Control'] = 'private, no-store'
+    return response
+
+
+@login_required
+def search_suggestions(request):
+    from .search_tools import ranked_articles
+    from django.urls import reverse
+    query = request.GET.get('q', '').strip()[:200]
+    articles = ranked_articles(query)[:7] if len(query) >= 2 else []
+    return JsonResponse({'results': [{'title': a.title, 'section': a.section.name if a.section else 'Без раздела', 'url': reverse('knowledge:article_detail', args=[a.slug])} for a in articles]})
 
 
 @login_required

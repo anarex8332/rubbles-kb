@@ -6,14 +6,7 @@
         <a class="wordmark" href="{% url 'knowledge:home' %}">RUBBLES<span class="brand-square" aria-hidden="true">
         </span>
         </a>
-        <label class="theme-control">
-            <span class="sr-only">Тема оформления</span>{% icon 'monitor' %}
-            <select data-theme-select aria-label="Тема оформления">
-                <option value="system">Системная</option>
-                <option value="light">Светлая</option>
-                <option value="dark">Тёмная</option>
-            </select>
-        </label>
+        {% include "_theme_toggle.html" %}
     </header>
     <main id="main" class="auth-main">
         <section class="auth-intro">

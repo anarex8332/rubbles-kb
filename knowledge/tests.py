@@ -174,3 +174,75 @@ class EditorWorkflowTests(TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertNotContains(response, 'id="sidebar"')
             self.assertContains(response, 'auth-main')
+
+
+class CommentAndSearchTests(TestCase):
+    def setUp(self):
+        import tempfile
+        self.media = tempfile.TemporaryDirectory()
+        self.addCleanup(self.media.cleanup)
+        self.settings_override = override_settings(MEDIA_ROOT=self.media.name)
+        self.settings_override.enable()
+        self.addCleanup(self.settings_override.disable)
+        self.user = User.objects.create_user('comment_writer', password='test-password')
+        self.other = User.objects.create_user('comment_other')
+        self.article = Article.objects.create(title='Оформление отпуска', content='<p>Отдых сотрудников</p>', status='published', author=self.user)
+        self.url = f'/article/{self.article.slug}/comment/'
+        self.client.force_login(self.user)
+
+    def test_rich_comment_sanitized_and_owner_can_edit(self):
+        from .models import Comment
+        response = self.client.post(self.url, {'text_html': '<b onclick="alert(1)">Привет</b><script>alert(1)</script>', 'sticker': 'thanks'})
+        self.assertEqual(response.status_code, 200)
+        comment = Comment.objects.get(pk=response.json()['id'])
+        self.assertIn('<b>Привет</b>', comment.text_html)
+        self.assertNotIn('onclick', comment.text_html)
+        self.assertNotIn('<script', comment.text_html)
+        edit = f'{self.url}{comment.pk}/edit/'
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.post(edit, {'text_html': 'Чужая правка'}).status_code, 404)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.post(edit, {'text_html': '<i>Изменено</i>'}).status_code, 200)
+        comment.refresh_from_db()
+        self.assertEqual(comment.text_html, '<i>Изменено</i>')
+        self.assertEqual(comment.sticker, '')
+
+    def test_files_images_download_and_remove(self):
+        import io
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from .models import Comment, CommentAttachment
+        image = io.BytesIO(); Image.new('RGB', (2, 2)).save(image, 'PNG')
+        response = self.client.post(self.url, {'files': [SimpleUploadedFile('sample.png', image.getvalue(), 'image/png'), SimpleUploadedFile('notes.txt', b'notes')]})
+        self.assertEqual(response.status_code, 200)
+        comment = Comment.objects.get(pk=response.json()['id'])
+        self.assertEqual(comment.attachments.count(), 2)
+        attachment = comment.attachments.get(is_image=False)
+        download = self.client.get(f'/attachments/{attachment.pk}/')
+        self.assertEqual(download.status_code, 200)
+        self.assertIn('attachment', download['Content-Disposition'])
+        download.close()
+        self.client.post(f'{self.url}{comment.pk}/edit/', {'text': 'Обновление', 'remove_attachment': [attachment.pk]})
+        self.assertFalse(CommentAttachment.objects.filter(pk=attachment.pk).exists())
+        self.client.logout()
+        self.assertEqual(self.client.get(f'/attachments/{comment.attachments.first().pk}/').status_code, 302)
+
+    def test_invalid_files_empty_comment_and_closed_comments(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        for data in [{}, {'sticker': 'unknown'}, {'files': SimpleUploadedFile('bad.html', b'<script>')}, {'files': SimpleUploadedFile('bad.png', b'not an image')}]:
+            self.assertEqual(self.client.post(self.url, data).status_code, 400)
+        self.article.allow_comments = False; self.article.save()
+        self.assertEqual(self.client.post(self.url, {'text': 'Hello'}).status_code, 403)
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+
+    def test_suggestions_typos_synonyms_and_no_drafts(self):
+        Article.objects.create(title='Отгул секретный', content='hidden', status='draft')
+        for query in ['отпу', 'отпускк', 'отгул']:
+            response = self.client.get('/search/suggestions/', {'q': query})
+            self.assertEqual(response.status_code, 200)
+            titles = [item['title'] for item in response.json()['results']]
+            self.assertIn(self.article.title, titles)
+            self.assertNotIn('Отгул секретный', titles)
+        self.assertEqual(self.client.get('/search/suggestions/?q=я').json()['results'], [])
+        self.client.logout()
+        self.assertEqual(self.client.get('/search/suggestions/?q=отпуск').status_code, 302)

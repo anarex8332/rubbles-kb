@@ -14,7 +14,7 @@
         {% block extra_head %}
         {% endblock %}
     </head>
-    <body class="{% block body_class %}
+    <body data-search-url="{% url 'knowledge:search_suggestions' %}" class="{% block body_class %}
                  {% endblock %}">
         <a class="skip-link" href="#main">Перейти к содержимому</a>
         {% block app_shell %}
@@ -31,14 +31,7 @@
                         <kbd>Ctrl K</kbd>
                     </form>
                     <div class="header__right">
-                        <label class="theme-control">
-                            <span class="sr-only">Тема оформления</span>{% icon 'monitor' %}
-                            <select data-theme-select aria-label="Тема оформления">
-                                <option value="system">Системная</option>
-                                <option value="light">Светлая</option>
-                                <option value="dark">Тёмная</option>
-                            </select>
-                        </label>
+
                         <a href="{% url 'knowledge:notification_list' %}" class="btn-icon notification-bell" aria-label="Уведомления{% if unread_count %}: {{ unread_count }} непрочитанных{% endif %}">{% icon 'bell' %}
                             {% if unread_count %}
                                 <span class="notification-dot">
@@ -51,8 +44,7 @@
                 </button>
                 <aside class="sidebar" id="sidebar" data-nav-user="{{ user.pk|default:'anonymous' }}" aria-label="Навигация">
                     <div class="sidebar-brand">
-                        <a href="{% url 'knowledge:home' %}" class="wordmark">RUBBLES<span class="brand-square" aria-hidden="true">
-                        </span>
+                        <a href="{% url 'knowledge:home' %}" class="wordmark">RUBBLES
                         </a>
                         <span class="sidebar-brand__caption">Знания команды</span>
                         <button class="btn-icon sidebar-close" type="button" aria-label="Закрыть меню">{% icon 'x' %}
@@ -105,6 +97,7 @@
                         <a class="nav-link nav-main-link" href="{% url 'knowledge:status_overview' %}">{% icon 'list-checks' %} Контроль состояния</a>
                         <a class="nav-link nav-main-link" href="{% url 'knowledge:changelog' %}">{% icon 'git-branch' %} Релизы</a>
                     </div>
+                    <div class="sidebar-theme">{% include "_theme_toggle.html" %}</div>
                     <div class="sidebar-footer">
                         <a class="profile-link" href="{% url 'profile' %}">
                             <span class="user-avatar">
@@ -132,6 +125,7 @@
         {% if editor_save_receipt %}{{ editor_save_receipt|json_script:'editor-save-receipt' }}{% endif %}
         <div id="ui-announcement" class="sr-only" role="status" aria-live="polite">
         </div>
+        <script src="{% static 'js/search.js' %}" defer></script>
         <script src="{% static 'js/main.js' %}">
         </script>
         {% block extra_scripts %}
