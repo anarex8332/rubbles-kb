@@ -252,7 +252,7 @@ def search_suggestions(request):
     from .search_tools import ranked_articles
     from django.urls import reverse
     query = request.GET.get('q', '').strip()[:200]
-    articles = ranked_articles(query)[:7] if len(query) >= 2 else []
+    articles = ranked_articles(query)[:5] if len(query) >= 2 else []
     return JsonResponse({'results': [{'title': a.title, 'section': a.section.name if a.section else 'Без раздела', 'url': reverse('knowledge:article_detail', args=[a.slug])} for a in articles]})
 
 

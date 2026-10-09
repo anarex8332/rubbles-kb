@@ -123,10 +123,9 @@
                         <h2>Обсуждение <span class="muted">{{ comments|length }}</span>
                         </h2>
                     </div>
-                    {% include 'knowledge/_comment_editor.html' %}
                     <div class="comments-list">
                         {% for comment in comments %}
-                            <article id="comment-{{ comment.pk }}" class="comment {% if comment.is_resolved %}comment--resolved{% endif %}">
+                            <article id="comment-{{ comment.pk }}" class="comment {% if comment.author_id == user.pk %}comment--own {% endif %}{% if comment.is_resolved %}comment--resolved{% endif %}">
                                 <div class="comment__header">
                                     <strong>{{ comment.author.username }}</strong>
                                     <time>{{ comment.created_at|date:'d.m.Y H:i' }}</time>
@@ -135,11 +134,10 @@
                                     {% endif %}
                                 </div>
                                 <div class="comment__text">{% if comment.text_html %}{{ comment.text_html|safe }}{% else %}{{ comment.text|linebreaksbr }}{% endif %}</div>
-                                {% if comment.sticker %}<div class="comment-sticker" data-sticker="{{ comment.sticker }}"></div>{% endif %}
                                 <div class="comment-attachments">{% for attachment in comment.attachments.all %}
                                     <a href="{% url 'knowledge:comment_attachment' attachment.pk %}" target="_blank" rel="noopener">{% if attachment.is_image %}<img src="{% url 'knowledge:comment_attachment' attachment.pk %}" alt="{{ attachment.name }}" loading="lazy">{% endif %}<span>{{ attachment.name }}</span></a>
                                 {% endfor %}</div>
-                                {% if comment.author_id == user.pk %}<details class="comment-edit"><summary>Редактировать</summary>{% include 'knowledge/_comment_editor.html' with editing=True %}</details>{% endif %}
+                                {% if comment.author_id == user.pk %}<details class="comment-edit"><summary class="comment-edit-icon" aria-label="Редактировать комментарий" title="Редактировать комментарий">{% icon 'pencil' %}</summary>{% include 'knowledge/_comment_editor.html' with editing=True %}</details>{% endif %}
                                 <form action="{% url 'knowledge:toggle_comment_resolved' article.slug comment.pk %}" method="post">{% csrf_token %}
                                     <button type="submit" class="btn btn-link btn-sm">
                                         {% if comment.is_resolved %}Вернуть в обсуждение{% else %}Отметить разрешённым{% endif %}
@@ -150,6 +148,7 @@
                             <p class="empty-state">Обсуждение пока пусто. Первый комментарий может быть вашим.</p>
                         {% endfor %}
                     </div>
+                    {% include 'knowledge/_comment_editor.html' %}
                 </section>
             {% endif %}
         </div>

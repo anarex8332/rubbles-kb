@@ -1,64 +1,77 @@
 document.addEventListener('DOMContentLoaded', () => {
     document
-        .querySelectorAll(
-            'form[role="search"], form.header-search, form.home-search, form.search-form',
-        )
+        .querySelectorAll('form[role="search"],.search-form')
         .forEach((form, index) => {
             const input = form.querySelector('input[name="q"]');
             if (!input) return;
-            form.classList.add('search-with-suggestions');
             const panel = document.createElement('div');
             panel.className = 'search-suggestions';
             panel.id = 'search-suggestions-' + index;
             panel.hidden = true;
             panel.setAttribute('role', 'listbox');
-            panel.setAttribute('aria-label', 'Подходящие статьи');
-            form.append(panel);
+            panel.setAttribute('aria-label', 'Лучшие результаты');
+            document.body.append(panel);
             input.autocomplete = 'off';
             input.setAttribute('role', 'combobox');
-            input.setAttribute('aria-autocomplete', 'list');
             input.setAttribute('aria-controls', panel.id);
             input.setAttribute('aria-expanded', 'false');
+            input.setAttribute('aria-autocomplete', 'list');
             let timer,
                 controller,
-                active = -1,
-                serial = 0;
-            const close = () => {
+                serial = 0,
+                active = -1;
+            function position() {
+                const rect = form.getBoundingClientRect();
+                const width = Math.min(
+                    Math.max(rect.width, 300),
+                    innerWidth - 24,
+                );
+                panel.style.width = width + 'px';
+                panel.style.left =
+                    Math.max(12, Math.min(rect.left, innerWidth - width - 12)) +
+                    'px';
+                panel.style.top = rect.bottom + 6 + 'px';
+                panel.style.maxHeight =
+                    Math.max(80, innerHeight - rect.bottom - 18) + 'px';
+            }
+            function close() {
                 panel.hidden = true;
                 input.setAttribute('aria-expanded', 'false');
                 input.removeAttribute('aria-activedescendant');
                 active = -1;
-            };
+            }
             input.addEventListener('input', () => {
                 clearTimeout(timer);
                 controller?.abort();
-                const current = ++serial;
                 close();
-                if (input.value.trim().length < 2) return;
+                const ticket = ++serial;
+                const query = input.value.trim();
+                if (query.length < 2) return;
                 timer = setTimeout(async () => {
                     controller = new AbortController();
                     try {
                         const response = await fetch(
                             document.body.dataset.searchUrl +
                                 '?q=' +
-                                encodeURIComponent(input.value.trim()),
+                                encodeURIComponent(query),
                             { signal: controller.signal },
                         );
-                        if (!response.ok) throw new Error();
+                        if (!response.ok) return;
                         const data = await response.json();
                         if (
-                            current !== serial ||
+                            ticket !== serial ||
                             document.activeElement !== input
                         )
                             return;
                         panel.replaceChildren();
-                        data.results.forEach((item, number) => {
+                        data.results.slice(0, 5).forEach((item, i) => {
                             const link = document.createElement('a');
+                            link.id = panel.id + '-' + i;
                             link.href = item.url;
-                            link.id = panel.id + '-' + number;
                             link.setAttribute('role', 'option');
                             link.setAttribute('aria-selected', 'false');
-                            const title = document.createElement('strong');
+                            const title = document.createElement('span');
+                            title.className = 'suggestion-title';
                             title.textContent = item.title;
                             const section = document.createElement('small');
                             section.textContent = item.section;
@@ -67,19 +80,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                         if (!data.results.length) {
                             const empty = document.createElement('p');
-                            empty.textContent =
-                                'Похожих статей пока нет. Попробуйте другие слова.';
+                            empty.textContent = 'Статьи не найдены';
                             panel.append(empty);
                         }
+                        position();
                         panel.hidden = false;
                         input.setAttribute('aria-expanded', 'true');
-                    } catch (error) {
-                        if (error.name !== 'AbortError') close();
+                    } catch (e) {
+                        if (e.name !== 'AbortError') close();
                     }
-                }, 220);
+                }, 180);
             });
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape') {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
                     ++serial;
                     clearTimeout(timer);
                     controller?.abort();
@@ -87,40 +100,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 if (panel.hidden) return;
-                const links = [...panel.querySelectorAll('a')];
-                if (
-                    ['ArrowDown', 'ArrowUp'].includes(event.key) &&
-                    links.length
-                ) {
-                    event.preventDefault();
+                const items = [...panel.querySelectorAll('a')];
+                if (['ArrowDown', 'ArrowUp'].includes(e.key) && items.length) {
+                    e.preventDefault();
                     active =
                         (active +
-                            (event.key === 'ArrowDown' ? 1 : -1) +
-                            links.length) %
-                        links.length;
-                    links.forEach((link, i) =>
-                        link.setAttribute(
-                            'aria-selected',
-                            String(i === active),
-                        ),
+                            (e.key === 'ArrowDown' ? 1 : -1) +
+                            items.length) %
+                        items.length;
+                    items.forEach((el, i) =>
+                        el.setAttribute('aria-selected', String(i === active)),
                     );
                     input.setAttribute(
                         'aria-activedescendant',
-                        links[active].id,
+                        items[active].id,
                     );
-                    links[active].scrollIntoView({ block: 'nearest' });
-                } else if (event.key === 'Enter' && active >= 0) {
-                    event.preventDefault();
-                    location.href = links[active].href;
+                    items[active].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter' && active >= 0) {
+                    e.preventDefault();
+                    location.href = items[active].href;
                 }
             });
-            document.addEventListener('click', (event) => {
-                if (!form.contains(event.target)) close();
+            document.addEventListener('pointerdown', (e) => {
+                if (!form.contains(e.target) && !panel.contains(e.target)) {
+                    ++serial;
+                    close();
+                }
             });
-            form.addEventListener('focusout', () =>
-                setTimeout(() => {
-                    if (!form.contains(document.activeElement)) close();
-                }, 0),
+            document.addEventListener('focusin', (e) => {
+                if (!form.contains(e.target) && !panel.contains(e.target))
+                    close();
+            });
+            window.addEventListener('resize', () => {
+                if (!panel.hidden) position();
+            });
+            window.addEventListener(
+                'scroll',
+                () => {
+                    if (!panel.hidden) position();
+                },
+                true,
             );
         });
 });

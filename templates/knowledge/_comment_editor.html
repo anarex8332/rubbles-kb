@@ -1,19 +1,18 @@
 {% load ui %}
 <form class="comment-composer" method="post" enctype="multipart/form-data" action="{% if editing %}{% url 'knowledge:edit_comment' article.slug comment.pk %}{% else %}{% url 'knowledge:add_comment' article.slug %}{% endif %}">
 {% csrf_token %}
-<div class="comment-toolbar" role="toolbar" aria-label="Форматирование комментария">
-<button type="button" data-format="bold" class="btn-icon" aria-label="Жирный"><b>Ж</b></button>
-<button type="button" data-format="italic" class="btn-icon" aria-label="Курсив"><i>К</i></button>
-<button type="button" data-format="insertUnorderedList" class="btn-icon" aria-label="Список">{% icon 'list' %}</button>
-<details class="comment-picker"><summary>Эмодзи</summary><div class="emoji-options" aria-label="Эмодзи"></div></details>
-<details class="comment-picker"><summary>Стикеры</summary><div class="sticker-options" aria-label="Стикеры"></div></details>
+{% if editing %}<div class="composer-edit-label">{% icon 'pencil' %} Редактирование сообщения <button type="button" class="btn-icon" data-cancel-edit aria-label="Отменить редактирование">{% icon 'x' %}</button></div>{% endif %}
+<div class="composer-input-row">
+<button type="button" class="btn-icon" data-panel="emoji" aria-expanded="false" aria-label="Выбрать эмодзи" title="Эмодзи">{% icon 'smile' %}</button>
+<div class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Текст комментария" data-placeholder="Написать комментарий…">{% if editing %}{% if comment.text_html %}{{ comment.text_html|safe }}{% else %}{{ comment.text|linebreaksbr }}{% endif %}{% endif %}</div>
+<button type="button" class="btn-icon" data-panel="attach" aria-expanded="false" aria-label="Прикрепить файл" title="Прикрепить файл">{% icon 'paperclip' %}</button>
+<button class="composer-send" type="submit" aria-label="{% if editing %}Сохранить изменения{% else %}Отправить{% endif %}" title="{% if editing %}Сохранить изменения{% else %}Отправить{% endif %}">{% if editing %}{% icon 'check' %}{% else %}{% icon 'send' %}{% endif %}</button>
 </div>
-<div class="comment-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Текст комментария" data-placeholder="Задайте вопрос или поделитесь уточнением…">{% if editing %}{% if comment.text_html %}{{ comment.text_html|safe }}{% else %}{{ comment.text|linebreaksbr }}{% endif %}{% endif %}</div>
-<input type="hidden" name="sticker" value="{% if editing %}{{ comment.sticker }}{% endif %}">
-<div class="sticker-preview"></div>
+<div class="composer-panel emoji-panel" data-popup="emoji" hidden><input type="search" class="emoji-search" placeholder="Поиск эмодзи" aria-label="Поиск эмодзи"><div class="emoji-categories" role="group" aria-label="Категории эмодзи"></div><div class="emoji-options"></div></div>
+<div class="composer-panel attachment-menu" data-popup="attach" hidden><button type="button" data-attach="image">{% icon 'image' %} Фото</button><button type="button" data-attach="document">{% icon 'file-text' %} Документ</button><small>До 5 файлов по 10 МБ</small></div>
+<input type="file" name="files" multiple hidden>
+<div class="selected-files"></div>
 {% if editing %}<div class="existing-attachments">{% for attachment in comment.attachments.all %}<label><input type="checkbox" name="remove_attachment" value="{{ attachment.pk }}"> Удалить {{ attachment.name }}</label>{% endfor %}</div>{% endif %}
-<label class="attachment-input">{% icon 'plus' %} Прикрепить файл<input type="file" name="files" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt"></label>
-<div class="selected-files"></div><p class="form-help">До 5 файлов по 10 МБ. Изображения, PDF и офисные документы.</p>
+<div class="composer-bottom"><div class="comment-toolbar" role="toolbar" aria-label="Форматирование комментария"><button type="button" data-format="bold" class="btn-icon" aria-label="Жирный" title="Жирный"><b>Ж</b></button><button type="button" data-format="italic" class="btn-icon" aria-label="Курсив" title="Курсив"><i>К</i></button><button type="button" data-format="insertUnorderedList" class="btn-icon" aria-label="Список" title="Список">{% icon 'list' %}</button></div><span>Enter — отправить · Shift+Enter — новая строка</span></div>
 <p class="comment-error field-error" role="alert" hidden></p>
-<div class="comment-form__footer"><span class="form-help">Ctrl / Cmd + Enter — отправить</span><button class="btn btn-primary btn-sm" type="submit">{% if editing %}Сохранить изменения{% else %}Отправить{% endif %}</button></div>
 </form>
