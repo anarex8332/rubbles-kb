@@ -2179,60 +2179,13 @@ input[type='checkbox'] {
     }
 }
 
-/* Compact theme slider */
+/* One icon indicates the currently selected theme. */
 .sidebar-theme {
-    padding: 18px 22px;
+    padding: 12px 22px;
     border-top: 1px solid var(--border);
 }
-.theme-switcher {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    position: relative;
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--text);
-}
-.theme-switcher input {
-    position: absolute;
-    right: 0;
-    width: 40px;
-    height: 26px;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 1;
-    margin: 0;
-}
-.theme-switch__track {
-    margin-left: auto;
-    width: 36px;
-    height: 20px;
-    border-radius: 20px;
-    background: #aaa;
-    flex: none;
-    position: relative;
-}
-.theme-switch__track::after {
-    content: '';
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    left: 2px;
-    top: 2px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px #0003;
-    transition: transform 0.15s;
-}
-.theme-switcher input:checked + .theme-switch__track {
-    background: #3390ec;
-}
-.theme-switcher input:checked + .theme-switch__track::after {
-    transform: translateX(16px);
-}
-.theme-switcher input:focus-visible + .theme-switch__track {
-    outline: 2px solid #3390ec;
-    outline-offset: 4px;
+.theme-icon-toggle {
+    color: var(--text-secondary);
 }
 /* Suggestions are portalled outside search forms, never inside the input layout. */
 .search-suggestions {
@@ -2410,8 +2363,9 @@ input[type='checkbox'] {
     border-color: var(--chat-accent);
 }
 .composer-input-row {
-    display: flex;
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 36px 42px;
+    align-items: start;
     gap: 4px;
 }
 .comment-editor {
@@ -2447,7 +2401,7 @@ input[type='checkbox'] {
     flex: none;
     width: 42px;
     height: 42px;
-    margin-bottom: 3px;
+    margin-top: 5px;
     border: 0;
     border-radius: 50%;
     display: grid;
@@ -2655,6 +2609,7 @@ input[type='checkbox'] {
         font-size: 14px;
     }
     .composer-input-row {
+        grid-template-columns: 30px minmax(0, 1fr) 30px 36px;
         gap: 0;
     }
     .composer-input-row > .btn-icon {
@@ -2663,7 +2618,7 @@ input[type='checkbox'] {
     .composer-send {
         width: 36px;
         height: 36px;
-        margin-bottom: 7px;
+        margin-top: 5px;
     }
     .comment-composer {
         padding: 7px;
@@ -2673,4 +2628,80 @@ input[type='checkbox'] {
     .theme-switch__track::after {
         transition: none;
     }
+}
+
+.composer-add {
+    margin-left: auto;
+    white-space: nowrap;
+}
+.mention-options {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    z-index: 60;
+    width: min(360px, 100%);
+    max-height: 240px;
+    overflow: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px #0002;
+    padding: 5px;
+}
+.mention-options button {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 10px 12px;
+    text-align: left;
+    background: none;
+    color: var(--text);
+    border-radius: 6px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.mention-options button:hover,
+.mention-options button[aria-selected='true'] {
+    background: var(--surface-soft);
+}
+.notification-dot {
+    background: #e34848;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+#notification-toasts {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    width: min(360px, calc(100vw - 32px));
+    display: grid;
+    gap: 10px;
+    z-index: 110;
+}
+.notification-toast {
+    display: flex;
+    align-items: start;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 8px 30px #0003;
+    padding: 16px;
+}
+.notification-toast a {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+.notification-toast button {
+    flex: none;
+    border: 0;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
 }

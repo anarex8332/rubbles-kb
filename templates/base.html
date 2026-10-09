@@ -10,7 +10,7 @@
         <script src="{% static 'js/theme.js' %}">
         </script>
         <link rel="preload" href="{% static 'fonts/Manrope.ttf' %}" as="font" type="font/ttf" crossorigin>
-        <link rel="stylesheet" href="{% static 'css/style.css' %}">
+        <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20261009-4">
         {% block extra_head %}
         {% endblock %}
     </head>
@@ -125,9 +125,10 @@
         {% if editor_save_receipt %}{{ editor_save_receipt|json_script:'editor-save-receipt' }}{% endif %}
         <div id="ui-announcement" class="sr-only" role="status" aria-live="polite">
         </div>
-        <script src="{% static 'js/search.js' %}" defer></script>
-        <script src="{% static 'js/main.js' %}">
+        <script src="{% static 'js/search.js' %}?v=20261009-4" defer></script>
+        <script src="{% static 'js/main.js' %}?v=20261009-4">
         </script>
+        {% if user.is_authenticated %}<div id="notification-toasts" aria-live="polite" data-url="{% url 'knowledge:notification_feed' %}" data-user="{{ user.pk }}"></div><script src="{% static 'js/notifications.js' %}?v=20261009-4" defer></script>{% endif %}
         {% block extra_scripts %}
         {% endblock %}
     </body>

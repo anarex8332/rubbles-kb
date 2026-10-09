@@ -246,3 +246,45 @@ class CommentAndSearchTests(TestCase):
         self.assertEqual(self.client.get('/search/suggestions/?q=я').json()['results'], [])
         self.client.logout()
         self.assertEqual(self.client.get('/search/suggestions/?q=отпуск').status_code, 302)
+
+
+class MentionsAndKeywordTests(TestCase):
+    def setUp(self):
+        self.sender = User.objects.create_user('mention_sender')
+        self.recipient = User.objects.create_user('mention.recipient', first_name='Мария')
+        self.article = Article.objects.create(title='Миссия и ценности', content='<p>Принципы команды</p>', status='published', author=self.recipient)
+        self.client.force_login(self.sender)
+
+    def test_keyword_title_is_first_and_single_letter_suggests(self):
+        Article.objects.create(title='Порядок работы', content='миссия и ценности', status='published')
+        for query in ['м', 'мисс', 'МИССИЯ', 'миссия ценности']:
+            data = self.client.get('/search/suggestions/', {'q': query}).json()
+            self.assertEqual(data['results'][0]['title'], self.article.title)
+            self.assertLessEqual(len(data['results']), 5)
+
+    def test_mentions_notified_once_with_text_and_private_feed(self):
+        from .models import Notification
+        response = self.client.post(f'/article/{self.article.slug}/comment/', {'text': '@mention.recipient привет @mention.recipient'})
+        self.assertEqual(response.status_code, 200)
+        notices = Notification.objects.filter(user=self.recipient)
+        self.assertEqual(notices.count(), 1)
+        self.assertIn('привет', notices.get().message)
+        self.assertEqual(self.client.get('/notifications/feed/').json()['unread'], 0)
+        self.client.post(f'/article/{self.article.slug}/comment/{response.json()["id"]}/edit/', {'text': '@mention.recipient исправлено'})
+        self.assertEqual(notices.count(), 1)
+        self.client.force_login(self.recipient)
+        data = self.client.get('/notifications/feed/').json()
+        self.assertEqual(data['unread'], 1)
+        self.assertEqual(len(data['items']), 1)
+        self.assertEqual(self.client.get('/notifications/feed/', {'after':data['latest']}).json()['items'], [])
+        self.client.get(data['items'][0]['url'])
+        self.assertEqual(self.client.get('/notifications/feed/').json()['unread'], 0)
+
+    def test_new_mention_on_edit_and_user_suggestions(self):
+        from .models import Notification
+        response = self.client.post(f'/article/{self.article.slug}/comment/', {'text': 'Привет'})
+        Notification.objects.all().delete()
+        self.client.post(f'/article/{self.article.slug}/comment/{response.json()["id"]}/edit/', {'text': '@mention.recipient посмотрите'})
+        self.assertEqual(Notification.objects.filter(user=self.recipient, notification_type='comment_mention').count(), 1)
+        data = self.client.get('/users/suggestions/', {'q':'мар'}).json()
+        self.assertEqual(data['results'][0]['username'], 'mention.recipient')

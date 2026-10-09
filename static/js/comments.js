@@ -67,6 +67,119 @@ document.addEventListener('DOMContentLoaded', () => {
         let range,
             selectedFiles = [],
             previews = [];
+        const mentions = form.querySelector('.mention-options');
+        let mentionTimer,
+            mentionRange,
+            mentionTicket = 0,
+            mentionActive = -1;
+        function hideMentions() {
+            mentions.hidden = true;
+            mentionActive = -1;
+            editor.removeAttribute('aria-activedescendant');
+        }
+        editor.addEventListener('input', () => {
+            clearTimeout(mentionTimer);
+            hideMentions();
+            const ticket = ++mentionTicket;
+            const selection = getSelection();
+            if (!selection.rangeCount || !editor.contains(selection.anchorNode))
+                return;
+            const caret = selection.getRangeAt(0);
+            if (
+                !caret.collapsed ||
+                caret.startContainer.nodeType !== Node.TEXT_NODE
+            )
+                return;
+            const prefix = caret.startContainer.textContent.slice(
+                0,
+                caret.startOffset,
+            );
+            const match = prefix.match(/(?:^|\s)@([\wа-яА-ЯёЁ.+-]*)$/u);
+            if (!match) return;
+            mentionRange = caret.cloneRange();
+            mentionRange.setStart(
+                caret.startContainer,
+                caret.startOffset - match[1].length - 1,
+            );
+            mentionTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch(
+                        form.dataset.mentionUrl +
+                            '?q=' +
+                            encodeURIComponent(match[1]),
+                    );
+                    if (!response.ok) return;
+                    const data = await response.json();
+                    if (ticket !== mentionTicket) return;
+                    mentions.replaceChildren();
+                    data.results.forEach((user, i) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.id =
+                            'mention-' + Math.random().toString(36).slice(2);
+                        button.setAttribute('role', 'option');
+                        button.setAttribute('aria-selected', 'false');
+                        button.textContent = user.name + ' · @' + user.username;
+                        button.onmousedown = (e) => e.preventDefault();
+                        button.onclick = () => {
+                            editor.focus();
+                            const selection = getSelection();
+                            selection.removeAllRanges();
+                            selection.addRange(mentionRange);
+                            document.execCommand(
+                                'insertText',
+                                false,
+                                '@' + user.username + ' ',
+                            );
+                            hideMentions();
+                            ++mentionTicket;
+                            remember();
+                        };
+                        mentions.append(button);
+                    });
+                    mentions.hidden = !data.results.length;
+                } catch {
+                    hideMentions();
+                }
+            }, 150);
+        });
+        editor.addEventListener('keydown', (event) => {
+            if (mentions.hidden) return;
+            const options = [...mentions.querySelectorAll('button')];
+            if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                mentionActive =
+                    (mentionActive +
+                        (event.key === 'ArrowDown' ? 1 : -1) +
+                        options.length) %
+                    options.length;
+                options.forEach((el, i) =>
+                    el.setAttribute(
+                        'aria-selected',
+                        String(i === mentionActive),
+                    ),
+                );
+                editor.setAttribute(
+                    'aria-activedescendant',
+                    options[mentionActive].id,
+                );
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                options[Math.max(0, mentionActive)]?.click();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                hideMentions();
+                ++mentionTicket;
+            }
+        });
+        document.addEventListener('pointerdown', (event) => {
+            if (!mentions.contains(event.target) && event.target !== editor) {
+                hideMentions();
+                ++mentionTicket;
+            }
+        });
         const original = editor.innerHTML;
         function remember() {
             const selection = getSelection();
@@ -313,7 +426,9 @@ document.addEventListener('DOMContentLoaded', () => {
             data.set('text_html', editor.innerHTML);
             data.set('text', editor.innerText);
             data.set('sticker', '');
-            submit.disabled = true;
+            form.querySelectorAll('[type=submit]').forEach(
+                (button) => (button.disabled = true),
+            );
             try {
                 const response = await fetch(form.action, {
                     method: 'POST',
@@ -329,7 +444,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (failure) {
                 error.textContent = failure.message;
                 error.hidden = false;
-                submit.disabled = false;
+                form.querySelectorAll('[type=submit]').forEach(
+                    (button) => (button.disabled = false),
+                );
             }
         });
         document.addEventListener('pointerdown', (e) => {

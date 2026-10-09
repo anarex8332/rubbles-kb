@@ -40,13 +40,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.removeAttribute('aria-activedescendant');
                 active = -1;
             }
-            input.addEventListener('input', () => {
+            function suggest() {
                 clearTimeout(timer);
                 controller?.abort();
                 close();
                 const ticket = ++serial;
                 const query = input.value.trim();
-                if (query.length < 2) return;
+                if (!query.length) return;
                 timer = setTimeout(async () => {
                     controller = new AbortController();
                     try {
@@ -90,6 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (e.name !== 'AbortError') close();
                     }
                 }, 180);
+            }
+            input.addEventListener('input', suggest);
+            input.addEventListener('focus', () => {
+                if (input.value.trim()) suggest();
             });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {

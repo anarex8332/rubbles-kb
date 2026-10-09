@@ -4,7 +4,7 @@ SECTION_UNSET = object()
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from slugify import slugify
@@ -280,34 +280,32 @@ class Notification(models.Model):
         return f"[{'✓' if self.is_read else '○'}] {self.user.username}: {self.message[:50]}"
 
 
+def mentioned_names(text):
+    return set(re.findall(r'(?<![\w@])@([\w.+-]+)', text))
+
+
+@receiver(pre_save, sender=Comment)
+def remember_comment_mentions(sender, instance, **kwargs):
+    old = sender.objects.filter(pk=instance.pk).values_list('text', flat=True).first() if instance.pk else ''
+    instance._previous_mentions = mentioned_names(old or '')
+
+
 @receiver(post_save, sender=Comment)
 def notify_on_comment(sender, instance, created, **kwargs):
-    """Создаёт уведомления автору статьи и упомянутым через @username при новом комментарии"""
-    if not created:
-        return
     comment = instance
-    if comment.article.author and comment.article.author != comment.author:
-        Notification.objects.create(
-            user=comment.article.author,
-            article=comment.article,
-            message=f'Новый комментарий от {comment.author.username} к статье "{comment.article.title[:50]}"',
-            notification_type='comment_added',
-            from_user=comment.author,
-        )
-
-    for username in re.findall(r'@(\w+)', comment.text):
-        try:
-            mentioned_user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            continue
-        if mentioned_user != comment.author:
-            Notification.objects.create(
-                user=mentioned_user,
-                article=comment.article,
-                message=f'{comment.author.username} упомянул вас в комментарии к статье "{comment.article.title[:50]}"',
-                notification_type='comment_mention',
-                from_user=comment.author,
-            )
+    if not comment.is_active:
+        return
+    new_names = mentioned_names(comment.text) - getattr(comment, '_previous_mentions', set())
+    recipients = list(User.objects.filter(username__in=new_names, is_active=True).exclude(pk=comment.author_id))
+    excerpt = comment.text[:300]
+    for recipient in recipients:
+        Notification.objects.create(user=recipient, article=comment.article,
+            message=f'{comment.author.username} упомянул вас: {excerpt}'[:500],
+            notification_type='comment_mention', from_user=comment.author)
+    if created and comment.article.author_id and comment.article.author_id != comment.author_id and comment.article.author_id not in [user.pk for user in recipients]:
+        Notification.objects.create(user=comment.article.author, article=comment.article,
+            message=f'{comment.author.username}: {excerpt}'[:500],
+            notification_type='comment_added', from_user=comment.author)
 
 
 class CommentAttachment(models.Model):

@@ -1,5 +1,5 @@
 {% load ui %}
-<form class="comment-composer" method="post" enctype="multipart/form-data" action="{% if editing %}{% url 'knowledge:edit_comment' article.slug comment.pk %}{% else %}{% url 'knowledge:add_comment' article.slug %}{% endif %}">
+<form data-mention-url="{% url 'knowledge:mention_users' %}" class="comment-composer" method="post" enctype="multipart/form-data" action="{% if editing %}{% url 'knowledge:edit_comment' article.slug comment.pk %}{% else %}{% url 'knowledge:add_comment' article.slug %}{% endif %}">
 {% csrf_token %}
 {% if editing %}<div class="composer-edit-label">{% icon 'pencil' %} Редактирование сообщения <button type="button" class="btn-icon" data-cancel-edit aria-label="Отменить редактирование">{% icon 'x' %}</button></div>{% endif %}
 <div class="composer-input-row">
@@ -11,8 +11,9 @@
 <div class="composer-panel emoji-panel" data-popup="emoji" hidden><input type="search" class="emoji-search" placeholder="Поиск эмодзи" aria-label="Поиск эмодзи"><div class="emoji-categories" role="group" aria-label="Категории эмодзи"></div><div class="emoji-options"></div></div>
 <div class="composer-panel attachment-menu" data-popup="attach" hidden><button type="button" data-attach="image">{% icon 'image' %} Фото</button><button type="button" data-attach="document">{% icon 'file-text' %} Документ</button><small>До 5 файлов по 10 МБ</small></div>
 <input type="file" name="files" multiple hidden>
+<div class="mention-options" role="listbox" aria-label="Пользователи" hidden></div>
 <div class="selected-files"></div>
 {% if editing %}<div class="existing-attachments">{% for attachment in comment.attachments.all %}<label><input type="checkbox" name="remove_attachment" value="{{ attachment.pk }}"> Удалить {{ attachment.name }}</label>{% endfor %}</div>{% endif %}
-<div class="composer-bottom"><div class="comment-toolbar" role="toolbar" aria-label="Форматирование комментария"><button type="button" data-format="bold" class="btn-icon" aria-label="Жирный" title="Жирный"><b>Ж</b></button><button type="button" data-format="italic" class="btn-icon" aria-label="Курсив" title="Курсив"><i>К</i></button><button type="button" data-format="insertUnorderedList" class="btn-icon" aria-label="Список" title="Список">{% icon 'list' %}</button></div><span>Enter — отправить · Shift+Enter — новая строка</span></div>
+<div class="composer-bottom"><div class="comment-toolbar" role="toolbar" aria-label="Форматирование комментария"><button type="button" data-format="bold" class="btn-icon" aria-label="Жирный" title="Жирный"><b>Ж</b></button><button type="button" data-format="italic" class="btn-icon" aria-label="Курсив" title="Курсив"><i>К</i></button><button type="button" data-format="insertUnorderedList" class="btn-icon" aria-label="Список" title="Список">{% icon 'list' %}</button></div><button type="submit" class="btn btn-primary btn-sm composer-add">{% if editing %}Сохранить изменения{% else %}Добавить комментарий{% endif %}</button></div>
 <p class="comment-error field-error" role="alert" hidden></p>
 </form>

@@ -252,7 +252,7 @@ def search_suggestions(request):
     from .search_tools import ranked_articles
     from django.urls import reverse
     query = request.GET.get('q', '').strip()[:200]
-    articles = ranked_articles(query)[:5] if len(query) >= 2 else []
+    articles = ranked_articles(query)[:5] if query else []
     return JsonResponse({'results': [{'title': a.title, 'section': a.section.name if a.section else 'Без раздела', 'url': reverse('knowledge:article_detail', args=[a.slug])} for a in articles]})
 
 
@@ -406,3 +406,31 @@ def notification_read(request, pk):
     if notification.article:
         return redirect('knowledge:article_detail', slug=notification.article.slug)
     return redirect('knowledge:notification_list')
+
+
+@login_required
+def mention_users(request):
+    from django.contrib.auth.models import User
+    query = request.GET.get('q', '').strip().lower()[:100]
+    users = User.objects.filter(is_active=True).exclude(pk=request.user.pk).order_by('username')
+    results = []
+    for user in users:
+        if not query or query in user.username.lower() or query in user.get_full_name().lower():
+            results.append({'username': user.username, 'name': user.get_full_name() or user.username})
+            if len(results) == 8:
+                break
+    return JsonResponse({'results': results})
+
+
+@login_required
+def notification_feed(request):
+    from django.urls import reverse
+    notifications = Notification.objects.filter(user=request.user)
+    try:
+        after = max(0, int(request.GET.get('after', '0')))
+    except ValueError:
+        after = 0
+    unread = notifications.filter(is_read=False)
+    fresh = unread.filter(pk__gt=after).order_by('pk')[:10] if after else unread.order_by('-pk')[:1]
+    return JsonResponse({'unread': unread.count(), 'latest': notifications.order_by('-pk').values_list('pk', flat=True).first() or 0,
+                         'items': [{'id': n.pk, 'text': n.message, 'url': reverse('knowledge:notification_read', args=[n.pk])} for n in fresh]})

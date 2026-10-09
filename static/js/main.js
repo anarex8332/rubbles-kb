@@ -1,15 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
     function syncTheme() {
-        document.querySelectorAll('[data-theme-toggle]').forEach((input) => {
-            input.checked = document.documentElement.dataset.theme === 'dark';
-            input.setAttribute('aria-checked', String(input.checked));
+        const dark = document.documentElement.dataset.theme === 'dark';
+        document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
+            const use = button.querySelector('use');
+            use.setAttribute(
+                'href',
+                use.getAttribute('href').split('#')[0] +
+                    '#' +
+                    (dark ? 'moon' : 'sun'),
+            );
+            button.setAttribute(
+                'aria-label',
+                dark ? 'Включить светлую тему' : 'Включить тёмную тему',
+            );
+            button.title = button.getAttribute('aria-label');
         });
     }
     document
         .querySelectorAll('[data-theme-toggle]')
-        .forEach((input) =>
-            input.addEventListener('change', () =>
-                RubblesTheme.set(input.checked ? 'dark' : 'light'),
+        .forEach((button) =>
+            button.addEventListener('click', () =>
+                RubblesTheme.set(
+                    document.documentElement.dataset.theme === 'dark'
+                        ? 'light'
+                        : 'dark',
+                ),
             ),
         );
     document.addEventListener('rubbles:theme', syncTheme);

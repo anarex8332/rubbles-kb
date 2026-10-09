@@ -5,6 +5,8 @@ app_name = 'knowledge'
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('users/suggestions/', views.mention_users, name='mention_users'),
+    path('notifications/feed/', views.notification_feed, name='notification_feed'),
     path('search/suggestions/', views.search_suggestions, name='search_suggestions'),
     path('attachments/<int:attachment_id>/', views.comment_attachment, name='comment_attachment'),
     path('article/<slug:slug>/comment/<int:comment_id>/edit/', views.edit_comment, name='edit_comment'),
