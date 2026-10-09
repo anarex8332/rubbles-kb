@@ -1,223 +1,129 @@
 {% extends 'base.html' %}
-{% load static %}
-{% block title %}{% if is_edit %}Редактирование: {{ article.title }}{% else %}Новая статья{% endif %} — RUBBLES KB{% endblock %}
-
+{% load static ui %}
+{% block title %}
+    {% if is_edit %}Редактирование{% else %}Новая статья{% endif %} — RUBBLES{% endblock %}
 {% block content %}
-<!-- Breadcrumbs -->
-<div class="breadcrumbs">
-    <a href="{% url 'knowledge:home' %}">Главная</a>
-    <span class="breadcrumbs__sep">/</span>
-    {% if is_edit %}
-        <a href="{% url 'knowledge:article_detail' article.slug %}">{{ article.title|truncatechars:50 }}</a>
-        <span class="breadcrumbs__sep">/</span>
-        <span>Редактировать</span>
-    {% else %}
-        <span>Новая статья</span>
-    {% endif %}
-</div>
-
-<!-- Editor Page -->
-<div class="editor-page">
-    <!-- Header actions (sticky) -->
-    <div class="editor-header">
-        <div class="editor-header__left">
-            <h1 class="editor-header__title">
-                <span class="editor-header__icon"><i class="fas fa-feather-alt"></i></span>
-                {% if is_edit %}Редактирование{% else %}Новая статья{% endif %}
-            </h1>
-        </div>
-        <div class="editor-header__right">
-            <span class="editor-autosave" id="autosave-indicator">Готово</span>
-            <button type="submit" class="btn btn-outline btn-sm" onclick="syncEditorContent(); setStatus('draft')">
-                <i class="fas fa-save"></i> Сохранить черновик
-            </button>
-            <button type="submit" class="btn btn-primary btn-sm" onclick="syncEditorContent(); setStatus('published')">
-                <i class="fas fa-check"></i> Опубликовать
-            </button>
-            <a href="{% if is_edit %}{% url 'knowledge:article_detail' article.slug %}{% else %}{% url 'knowledge:home' %}{% endif %}" class="btn btn-link btn-sm">Отмена</a>
-        </div>
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span>/</span>
+        <span>
+            {% if is_edit %}Редактирование статьи{% else %}Новая статья{% endif %}
+        </span>
     </div>
-
-    <form method="POST" id="article-form" class="editor-form">
-        {% csrf_token %}
-        <input type="hidden" name="status" id="status-hidden" value="published">
-        <input type="hidden" name="content" id="content-hidden" value="{{ article.content|default:'' }}">
-        <input type="hidden" name="section" id="section-hidden" value="{{ article.section_id|default:'' }}">
-        <input type="hidden" name="tags" id="tags-hidden" value="">
-        <input type="hidden" name="allow_comments" id="allow-comments-hidden" value="true">
-        <input type="hidden" name="notify_subscribers" id="notify-subscribers-hidden" value="false">
-
-        <!-- Title -->
-        <div class="editor-field">
-            <div class="editor-field__label">ЗАГОЛОВОК</div>
-            <div class="editor-title-wrap">
-                <input type="text" name="title" id="title-input" value="{{ article.title|default:'' }}" required
-                       class="editor-title-input" placeholder="Введите заголовок статьи" maxlength="200">
-                <span class="editor-title-counter" id="title-counter">0/200</span>
+    <form method="post" id="article-form" class="editor-page" data-draft-key="rubbles-editor:{{ user.pk }}:{{ article.pk|default:'new' }}" data-bound="{{ form.is_bound|yesno:'true,false' }}">{% csrf_token %}
+        <input type="hidden" name="status" id="status-hidden" value="{{ form.status.value|default:'draft' }}">
+        <input type="hidden" name="draft_token" id="draft-token">
+        <textarea name="content" id="content-hidden" hidden>{{ form.content.value|default:'' }}</textarea>
+        <header class="editor-header">
+            <div>
+                <h1>
+                    {% if is_edit %}Редактирование{% else %}Новая статья{% endif %}
+                </h1>
+                <span id="autosave-indicator" class="form-help" role="status">Изменения ещё не сохранены</span>
+            </div>
+            <div class="editor-actions">
+                <a class="btn btn-link" href="{% if article.status == 'published' %}
+                                                  {% url 'knowledge:article_detail' article.slug %}
+                                              {% else %}
+                                                  {% url 'profile' %}
+                                              {% endif %}">Отмена</a>
+                <button type="submit" name="save_mode" value="draft" class="btn btn-outline">Сохранить черновик</button>
+                <button type="submit" name="save_mode" value="published" class="btn btn-primary">{% icon 'check' %} Опубликовать</button>
+            </div>
+        </header>
+        <div id="draft-recovery" class="draft-recovery" hidden>
+            <div>
+                <strong>Есть несохранённые изменения</strong>
+                <p>Восстановить локальную копию этой статьи?</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="restore-draft" class="btn btn-primary btn-sm">Восстановить</button>
+                <button type="button" id="discard-draft" class="btn btn-outline btn-sm">Удалить копию</button>
             </div>
         </div>
-
-        <!-- Section -->
-        <div class="editor-field">
-            <div class="editor-field__label">РАЗДЕЛ</div>
-            <div class="custom-select" id="section-select">
-                <div class="custom-select__toggle" id="section-toggle">
-                    <span class="custom-select__toggle-icon">📁</span>
-                    <span>{% if article.section %}{{ article.section.icon|default:'📁' }} {{ article.section.name }}{% else %}Без раздела{% endif %}</span>
-                    <i class="fas fa-chevron-down custom-select__toggle-arrow"></i>
-                </div>
-                <div class="custom-select__dropdown" id="section-dropdown">
-                    <input type="text" class="custom-select__search" placeholder="Поиск раздела...">
-                    <div class="custom-select__option" data-value="" data-label="Без раздела" data-icon="📁">
-                        <span>📁</span> Без раздела
-                    </div>
-                    {% for sec in sections %}
-                        <div class="custom-select__option" data-value="{{ sec.id }}" data-label="{{ sec.name }}" data-icon="{{ sec.icon|default:'📁' }}" {% if article.section_id == sec.id %}data-selected{% endif %}>
-                            <span>{{ sec.icon|default:'📁' }}</span> {{ sec.name }}
-                        </div>
-                    {% endfor %}
-                </div>
+        {{ form.non_field_errors }}
+        <div class="editor-sheet">
+            <label class="sr-only" for="title-input">Заголовок статьи</label>
+            <input type="text" name="title" id="title-input" value="{{ form.title.value|default:'' }}" required maxlength="500" class="editor-title-input" placeholder="Название статьи" aria-describedby="title-errors">
+            <div id="title-errors">
+                {% for error in form.title.errors %}
+                    <p class="field-error">{{ error }}</p>
+                {% endfor %}
             </div>
-        </div>
-
-        <!-- Tags -->
-        <div class="editor-field">
-            <div class="editor-field__label">ТЕГИ</div>
-            <div class="tags-field" id="tags-container">
-                <input type="text" class="tags-field__input" id="tags-input" placeholder="Добавьте теги через Enter или запятую...">
-            </div>
-        </div>
-
-        <!-- Editor toolbar + content -->
-        <div class="editor-field">
-            <div class="editor-field__label">СОДЕРЖИМОЕ</div>
-            <div class="editor-wrapper">
-                <div class="editor-toolbar">
-                    <div class="editor-toolbar__group">
-                        <button type="button" class="editor-toolbar__btn" data-cmd="bold" title="Жирный"><b>B</b></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="italic" title="Курсив"><i>I</i></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="underline" title="Подчёркнутый"><u>U</u></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="strikeThrough" title="Зачёркнутый"><s>S</s></button>
-                    </div>
-                    <div class="editor-toolbar__sep"></div>
-                    <div class="editor-toolbar__group">
-                        <button type="button" class="editor-toolbar__btn" data-cmd="formatBlock" data-value="h1" title="Заголовок 1">H1</button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="formatBlock" data-value="h2" title="Заголовок 2">H2</button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="formatBlock" data-value="h3" title="Заголовок 3">H3</button>
-                    </div>
-                    <div class="editor-toolbar__sep"></div>
-                    <div class="editor-toolbar__group">
-                        <button type="button" class="editor-toolbar__btn" data-cmd="insertUnorderedList" title="Маркированный список"><i class="fas fa-list-ul"></i></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="insertOrderedList" title="Нумерованный список"><i class="fas fa-list-ol"></i></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="formatBlock" data-value="blockquote" title="Цитата"><i class="fas fa-quote-right"></i></button>
-                    </div>
-                    <div class="editor-toolbar__sep"></div>
-                    <div class="editor-toolbar__group">
-                        <button type="button" class="editor-toolbar__btn" data-cmd="insertImage" title="Изображение"><i class="fas fa-image"></i></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="createLink" title="Ссылка"><i class="fas fa-link"></i></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="insertMermaid" title="Mermaid-диаграмма"><i class="fas fa-chart-bar"></i></button>
-                        <button type="button" class="editor-toolbar__btn" data-cmd="insertHr" title="Разделитель"><i class="fas fa-minus"></i></button>
-                    </div>
-                    <div class="editor-toolbar__spacer"></div>
-                    <button type="button" class="editor-toolbar__btn editor-toolbar__btn--preview" id="preview-toggle" title="Предпросмотр">
-                        <i class="fas fa-eye"></i> Предпросмотр
+            <div class="editor-toolbar" role="toolbar" aria-label="Форматирование текста">
+                <div class="editor-toolbar__group">
+                    <button type="button" data-cmd="bold" title="Жирный" aria-label="Жирный">
+                        <b>B</b>
+                    </button>
+                    <button type="button" data-cmd="italic" title="Курсив" aria-label="Курсив">
+                        <em>I</em>
+                    </button>
+                    <button type="button" data-cmd="underline" title="Подчёркнутый" aria-label="Подчёркнутый">
+                        <u>U</u>
+                    </button>
+                    <button type="button" data-cmd="strikeThrough" title="Зачёркнутый" aria-label="Зачёркнутый">
+                        <s>S</s>
                     </button>
                 </div>
-                <div class="editor-content" id="editor-content" contenteditable="true">
-                    {% if is_edit %}{{ article.content|safe }}{% endif %}
+                <div class="editor-toolbar__group">
+                    <button type="button" data-cmd="formatBlock" data-value="h2" aria-label="Заголовок второго уровня">H2</button>
+                    <button type="button" data-cmd="formatBlock" data-value="h3" aria-label="Заголовок третьего уровня">H3</button>
+                    <button type="button" data-cmd="formatBlock" data-value="p" aria-label="Обычный текст">Т</button>
                 </div>
+                <div class="editor-toolbar__group">
+                    <button type="button" data-cmd="insertUnorderedList" aria-label="Маркированный список">{% icon 'list' %}
+                    </button>
+                    <button type="button" data-cmd="insertOrderedList" aria-label="Нумерованный список">{% icon 'list-ordered' %}
+                    </button>
+                    <button type="button" data-cmd="formatBlock" data-value="blockquote" aria-label="Цитата">{% icon 'quote' %}
+                    </button>
+                </div>
+                <div class="editor-toolbar__group">
+                    <button type="button" data-cmd="createLink" aria-label="Добавить ссылку">{% icon 'link' %}
+                    </button>
+                    <button type="button" data-cmd="insertImage" aria-label="Добавить изображение">{% icon 'image' %}
+                    </button>
+                    <button type="button" data-cmd="insertMermaid" aria-label="Добавить диаграмму">{% icon 'network' %}
+                    </button>
+                    <button type="button" data-cmd="insertHorizontalRule" aria-label="Разделитель">{% icon 'minus' %}
+                    </button>
+                </div>
+                <button type="button" id="preview-toggle" aria-pressed="false">Предпросмотр</button>
             </div>
+            <div id="editor-content" class="editor-content article-content" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Текст статьи" data-placeholder="Начните с главного…">{{ form.content.value|default:''|safe }}</div>
+            {% for error in form.content.errors %}
+                <p class="field-error">{{ error }}</p>
+            {% endfor %}
         </div>
-
-        <!-- Settings (collapsible) -->
-        <details class="editor-settings" {% if is_edit %}open{% endif %}>
-            <summary class="editor-settings__summary">
-                <i class="fas fa-cog"></i> Настройки статьи
-                <i class="fas fa-chevron-down editor-settings__arrow"></i>
+        <details class="editor-settings" {% if form.errors %}open{% endif %}>
+            <summary>{% icon 'settings' %} Раздел и настройки {% icon 'chevron-down' %}
             </summary>
-            <div class="editor-settings__body">
-                <div class="editor-settings__row">
-                    <span class="editor-settings__label">Автор</span>
-                    <span class="editor-settings__value">{{ user.get_full_name|default:user.username }}</span>
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label for="section-hidden">Раздел</label>
+                    <select id="section-hidden" name="section">
+                        <option value="">Без раздела</option>
+                        {% for section in sections %}
+                            <option value="{{ section.pk }}" {% if form.section.value|stringformat:'s' == section.pk|stringformat:'s' %}selected{% endif %}>{{ section.name }}</option>
+                        {% endfor %}
+                    </select>{{ form.section.errors }}</div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="allow_comments" id="settings-comments" {% if form.allow_comments.value %}checked{% endif %}> Разрешить комментарии</label>
+                    <p class="form-help">Коллеги смогут обсуждать содержание статьи.</p>
                 </div>
-                <div class="editor-settings__row">
-                    <span class="editor-settings__label">Дата публикации</span>
-                    <span class="editor-settings__value">Сейчас</span>
-                </div>
-                <div class="editor-settings__row">
-                    <span class="editor-settings__label">Разрешить комментарии</span>
-                    <label class="editor-toggle">
-                        <input type="checkbox" checked id="settings-comments">
-                        <span class="editor-toggle__slider"></span>
-                    </label>
-                </div>
-                <div class="editor-settings__row">
-                    <span class="editor-settings__label">Уведомить подписчиков раздела</span>
-                    <label class="editor-toggle">
-                        <input type="checkbox" id="settings-notify">
-                        <span class="editor-toggle__slider"></span>
-                    </label>
-                </div>
+                {% if is_edit %}
+                    <div class="form-group settings-wide">
+                        <label for="change-summary">Описание изменений</label>
+                        <input id="change-summary" name="change_summary" value="{{ request.POST.change_summary|default:'' }}" placeholder="Что изменилось в этой версии?">
+                    </div>
+                {% endif %}
             </div>
         </details>
-
-        {% if is_edit %}
-        <div class="editor-field">
-            <div class="editor-field__label">ОПИСАНИЕ ИЗМЕНЕНИЙ</div>
-            <input type="text" name="change_summary" class="form-input" placeholder="Кратко опишите, что изменилось (необязательно)">
-        </div>
-        {% endif %}
-
-        <!-- Bottom actions (sticky) -->
-        <div class="editor-footer">
-            <div class="editor-footer__left">
-                <span class="editor-autosave" id="autosave-indicator-bottom">Автосохранение: готово</span>
-            </div>
-            <div class="editor-footer__right">
-                <button type="button" class="btn btn-outline" onclick="setPublishMode('draft')">
-                    <i class="fas fa-save"></i> Сохранить черновик
-                </button>
-                <button type="button" class="btn btn-primary btn-lg" onclick="setPublishMode('published')">
-                    <i class="fas fa-check"></i> Опубликовать
-                </button>
-            </div>
-        </div>
-        <button type="submit" id="real-submit-btn" style="display:none"></button>
     </form>
-</div>
-
-<!-- Hidden file input for image insert -->
-<input type="file" id="image-input" accept="image/*" style="display:none">
+    <input type="file" id="image-input" accept="image/*" hidden>
 {% endblock %}
-
 {% block extra_scripts %}
-<script src="{% static 'js/editor.js' %}?v=2"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Settings toggles sync
-    var commentsToggle = document.getElementById('settings-comments');
-    var notifyToggle = document.getElementById('settings-notify');
-    if (commentsToggle) {
-        commentsToggle.addEventListener('change', function() {
-            document.getElementById('allow-comments-hidden').value = this.checked ? 'true' : 'false';
-        });
-    }
-    if (notifyToggle) {
-        notifyToggle.addEventListener('change', function() {
-            document.getElementById('notify-subscribers-hidden').value = this.checked ? 'true' : 'false';
-        });
-    }
-
-    // Autosave indicator sync
-    var indicators = document.querySelectorAll('.editor-autosave');
-    var editorContent = document.getElementById('editor-content');
-    if (editorContent) {
-        editorContent.addEventListener('input', function() {
-            indicators.forEach(function(el) {
-                el.textContent = 'Сохранение...';
-            });
-        });
-    }
-});
-</script>
+    <script src="{% static 'js/editor.js' %}">
+    </script>
 {% endblock %}

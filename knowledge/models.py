@@ -1,5 +1,7 @@
 import re
 
+SECTION_UNSET = object()
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -97,8 +99,8 @@ class Article(models.Model):
             self.slug = slug
         super().save(*args, **kwargs)
 
-    def apply_new_version(self, *, title, content, section=None, content_markdown='',
-                           snapshot_author=None, change_summary='', mark_fresh=True):
+    def apply_new_version(self, *, title, content, section=SECTION_UNSET, content_markdown='',
+                           snapshot_author=None, change_summary='', mark_fresh=False):
         """Сохраняет текущее состояние статьи как версию истории и применяет новые данные.
 
         Используется и при редактировании, и при откате к старой версии — раньше
@@ -116,7 +118,7 @@ class Article(models.Model):
         self.title = title
         self.content = content
         self.content_markdown = content_markdown
-        if section is not None:
+        if section is not SECTION_UNSET:
             self.section = section
         self.version += 1
         if mark_fresh:

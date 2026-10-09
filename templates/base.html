@@ -1,295 +1,140 @@
+{% load static ui %}
 <!DOCTYPE html>
-{% load static %}
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}RUBBLES Planning Force — База знаний{% endblock %}</title>
-    <script>
-        if (localStorage.getItem('rubbles-theme') === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        }
-    </script>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    {% block extra_head %}{% endblock %}
-</head>
-<body>
-    <div class="layout">
-        <!-- Header -->
-        <header class="header">
-            <div class="header__left">
-                <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Меню">
-                    <i class="fas fa-bars"></i>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>
+            {% block title %}RUBBLES — База знаний{% endblock %}
+        </title>
+        <script src="{% static 'js/theme.js' %}">
+        </script>
+        <link rel="preload" href="{% static 'fonts/Manrope.ttf' %}" as="font" type="font/ttf" crossorigin>
+        <link rel="stylesheet" href="{% static 'css/style.css' %}">
+        {% block extra_head %}
+        {% endblock %}
+    </head>
+    <body class="{% block body_class %}
+                 {% endblock %}">
+        <a class="skip-link" href="#main">Перейти к содержимому</a>
+        {% block app_shell %}
+            <div class="layout">
+                <header class="header">
+                    <div class="header__left">
+                        <button class="btn-icon sidebar-toggle" type="button" aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false">{% icon 'menu' %}
+                        </button>
+                        <span class="workspace-label">Рабочее пространство</span>
+                    </div>
+                    <form action="{% url 'knowledge:search' %}" class="header-search" role="search">
+                        {% icon 'search' %}
+                        <input id="global-search" name="q" value="{{ query|default:'' }}" placeholder="Найти в базе знаний" aria-label="Поиск по базе знаний">
+                        <kbd>Ctrl K</kbd>
+                    </form>
+                    <div class="header__right">
+                        <label class="theme-control">
+                            <span class="sr-only">Тема оформления</span>{% icon 'monitor' %}
+                            <select data-theme-select aria-label="Тема оформления">
+                                <option value="system">Системная</option>
+                                <option value="light">Светлая</option>
+                                <option value="dark">Тёмная</option>
+                            </select>
+                        </label>
+                        <a href="{% url 'knowledge:notification_list' %}" class="btn-icon notification-bell" aria-label="Уведомления{% if unread_count %}: {{ unread_count }} непрочитанных{% endif %}">{% icon 'bell' %}
+                            {% if unread_count %}
+                                <span class="notification-dot">
+                                </span>
+                            {% endif %}
+                        </a>
+                    </div>
+                </header>
+                <button class="sidebar-backdrop" type="button" aria-label="Закрыть меню" hidden>
                 </button>
-                <a href="{% url 'knowledge:home' %}" class="header__logo">
-                    <span class="logo-icon"><i class="fas fa-brain"></i></span>
-                    <span class="logo-text">RUBBLES KB</span>
-                </a>
-            </div>
-            <div class="header__center">
-                <form action="{% url 'knowledge:search' %}" method="GET" class="search-form">
-                    <i class="fas fa-search"></i>
-                    <input type="text" name="q" placeholder="Поиск по базе знаний..." 
-                           value="{{ query|default:'' }}" class="search-input">
-                    <button type="submit" class="search-btn"><i class="fas fa-search"></i></button>
-                </form>
-            </div>
-            <div class="header__right">
-                <div class="theme-switch-wrapper">
-                    <label class="theme-switch">
-                        <input type="checkbox" id="theme-toggle">
-                        <span class="theme-switch__slider"></span>
-                        <span class="theme-switch__icon theme-switch__icon--sun">☀️</span>
-                        <span class="theme-switch__icon theme-switch__icon--moon">🌙</span>
-                    </label>
-                </div>
-                {% if user.is_authenticated %}
-                    <a href="{% url 'knowledge:notification_list' %}" class="notification-bell">
-                        <i class="fas fa-bell"></i>
-                        {% if unread_count > 0 %}
-                            <span class="notification-dot"></span>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'profile' %}" class="user-avatar">
-                        {% if user.profile.avatar %}
-                            <img src="{{ user.profile.avatar.url }}" alt="" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
-                        {% else %}
-                            {{ user.username|first|upper }}
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'logout' %}" class="btn-icon">
-                        <i class="fas fa-sign-out-alt"></i>
-                    </a>
-                {% else %}
-                    <a href="{% url 'login' %}" class="btn btn-primary btn-sm">Войти</a>
-                    <a href="{% url 'register' %}" class="btn btn-outline btn-sm">Регистрация</a>
-                {% endif %}
-            </div>
-        </header>
-
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar__nav">
-                <div class="sidebar-header">
-                    <div class="sidebar-header__space">
-                        <div class="sidebar-header__icon"><i class="fas fa-brain"></i></div>
-                        <div class="sidebar-header__info">
-                            <div class="sidebar-header__name">База знаний</div>
-                            <div class="sidebar-header__type">Пространство</div>
-                        </div>
+                <aside class="sidebar" id="sidebar" data-nav-user="{{ user.pk|default:'anonymous' }}" aria-label="Навигация">
+                    <div class="sidebar-brand">
+                        <a href="{% url 'knowledge:home' %}" class="wordmark">RUBBLES<span class="brand-square" aria-hidden="true">
+                        </span>
+                        </a>
+                        <span class="sidebar-brand__caption">Знания команды</span>
+                        <button class="btn-icon sidebar-close" type="button" aria-label="Закрыть меню">{% icon 'x' %}
+                        </button>
                     </div>
-                </div>
-
-                {% if user.is_authenticated %}
-                    <a href="{% url 'knowledge:article_create' %}" class="create-btn">
-                        <i class="fas fa-plus"></i> Создать статью
-                    </a>
-                {% endif %}
-
-                <div class="nav-section">
-                    <div class="nav-title"><i class="fas fa-home"></i><a href="{% url 'knowledge:home' %}">Главная</a></div>
-                </div>
-
-                <div class="nav-section" id="sidebar-sections">
-                    <div class="nav-title"><i class="fas fa-folder"></i> Разделы</div>
-                    {% for section in nav_sections %}
-                        <div class="section-wrapper" data-section="{{ section.slug }}">
-                            <div class="section-header">
-                                <a href="{% url 'knowledge:section_detail' section.slug %}" class="section-header__link">
-                                    <span class="section-header__icon">{{ section.icon|default:'📁' }}</span>
-                                    <span class="section-header__name">{{ section.name }}</span>
-                                </a>
-                                <button class="section-header__chevron-btn" type="button">
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
-                            </div>
-                            <div class="section-children section-children--hidden">
-                                {% for child in section.children.all %}
-                                    {% if child.is_active %}
-                                        <a href="{% url 'knowledge:section_detail' child.slug %}" class="nav-link nav-link--child">
-                                            {{ child.icon|default:'▸' }} {{ child.name }}
-                                        </a>
-                                        {% with child_articles=child.articles.all %}
-                                            {% if child_articles %}
-                                                {% for art in child_articles|slice:":5" %}
-                                                    <a href="{% url 'knowledge:article_detail' art.slug %}" class="nav-link nav-link--article">{{ art.title|truncatechars:40 }}</a>
-                                                {% endfor %}
-                                            {% endif %}
-                                        {% endwith %}
-                                    {% endif %}
+                    <div class="sidebar__nav">
+                        <a class="create-btn" href="{% url 'knowledge:article_create' %}">{% icon 'plus' %} Создать статью</a>
+                        <a class="nav-link nav-main-link" href="{% url 'knowledge:home' %}">{% icon 'house' %} Главная</a>
+                        <nav class="nav-section" id="sidebar-sections" aria-label="Разделы базы знаний">
+                            <div class="nav-title">Разделы</div>
+                            {% for section in nav_sections %}
+                                {% include 'knowledge/_sidebar_section.html' %}
+                            {% empty %}
+                                <div class="nav-empty">Разделов пока нет</div>
+                            {% endfor %}
+                        </nav>
+                        <div class="nav-title">Личное</div>
+                        <details class="nav-branch" data-nav-key="recently-viewed">
+                            <summary class="nav-branch__summary">{% icon 'clock' 'nav-branch__icon' %}
+                                <span>Недавние</span>
+                            </summary>
+                            <div class="nav-branch__children">
+                                <a class="nav-link nav-link--overview" href="{% url 'knowledge:recently_viewed' %}">Все недавние</a>
+                                {% for rv in recently_viewed %}
+                                    <a class="nav-link nav-link--article" href="{% url 'knowledge:article_detail' rv.article.slug %}">{% icon 'file-text' %}
+                                        <span>{{ rv.article.title }}</span>
+                                    </a>
+                                {% empty %}
+                                    <div class="nav-empty">Вы ещё не открывали статьи</div>
                                 {% endfor %}
-                                {% with section_articles=section.articles.all %}
-                                    {% if section_articles %}
-                                        {% for art in section_articles|slice:":5" %}
-                                            <a href="{% url 'knowledge:article_detail' art.slug %}" class="nav-link nav-link--article">{{ art.title|truncatechars:40 }}</a>
-                                        {% endfor %}
-                                    {% endif %}
-                                {% endwith %}
                             </div>
+                        </details>
+                        <details class="nav-branch" data-nav-key="bookmarks">
+                            <summary class="nav-branch__summary">{% icon 'bookmark' 'nav-branch__icon' %}
+                                <span>Закладки</span>
+                            </summary>
+                            <div class="nav-branch__children">
+                                <a class="nav-link nav-link--overview" href="{% url 'knowledge:bookmark_list' %}">Все закладки</a>
+                                {% for bm in bookmarks %}
+                                    <a class="nav-link nav-link--article" href="{% url 'knowledge:article_detail' bm.article.slug %}">{% icon 'file-text' %}
+                                        <span>{{ bm.article.title }}</span>
+                                    </a>
+                                {% empty %}
+                                    <div class="nav-empty">Сохраняйте важные статьи</div>
+                                {% endfor %}
+                            </div>
+                        </details>
+                        <div class="nav-divider">
                         </div>
-                    {% empty %}
-                        <div class="nav-empty">Нет разделов</div>
-                    {% endfor %}
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-title"><i class="fas fa-code-branch"></i><a href="{% url 'knowledge:changelog' %}">Релизы</a></div>
-                </div>
-
-                {% if user.is_authenticated %}
-                <div class="nav-section">
-                    <div class="nav-title"><i class="fas fa-list-check"></i><a href="{% url 'knowledge:status_overview' %}">Контроль состояния</a></div>
-                </div>
-                {% endif %}
-
-                {% if user.is_authenticated %}
-                    <div class="section-wrapper sidebar-collapsible">
-                        <div class="section-header section-header--simple">
-                            <a href="{% url 'knowledge:recently_viewed' %}" class="section-header__link">
-                                <span class="section-header__icon"><i class="fas fa-history"></i></span>
-                                <span class="section-header__name">Недавние</span>
-                            </a>
-                            <button class="section-header__chevron-btn section-header__chevron-btn--closed" type="button"><i class="fas fa-chevron-down"></i></button>
-                        </div>
-                        <div class="section-children section-children--hidden">
-                            {% for rv in recently_viewed %}
-                                <a href="{% url 'knowledge:article_detail' rv.article.slug %}" class="nav-link nav-link--article">{{ rv.article.title|truncatechars:40 }}</a>
-                            {% empty %}
-                                <div class="nav-empty">Нет просмотров</div>
-                            {% endfor %}
-                        </div>
+                        <a class="nav-link nav-main-link" href="{% url 'knowledge:status_overview' %}">{% icon 'list-checks' %} Контроль состояния</a>
+                        <a class="nav-link nav-main-link" href="{% url 'knowledge:changelog' %}">{% icon 'git-branch' %} Релизы</a>
                     </div>
-
-                    <div class="section-wrapper sidebar-collapsible">
-                        <div class="section-header section-header--simple">
-                            <a href="{% url 'knowledge:bookmark_list' %}" class="section-header__link">
-                                <span class="section-header__icon"><i class="fas fa-bookmark"></i></span>
-                                <span class="section-header__name">Закладки</span>
-                            </a>
-                            <button class="section-header__chevron-btn section-header__chevron-btn--closed" type="button"><i class="fas fa-chevron-down"></i></button>
-                        </div>
-                        <div class="section-children section-children--hidden">
-                            {% for bm in bookmarks %}
-                                <a href="{% url 'knowledge:article_detail' bm.article.slug %}" class="nav-link nav-link--article">{{ bm.article.title|truncatechars:40 }}</a>
-                            {% empty %}
-                                <div class="nav-empty">Нет закладок</div>
-                            {% endfor %}
-                        </div>
+                    <div class="sidebar-footer">
+                        <a class="profile-link" href="{% url 'profile' %}">
+                            <span class="user-avatar">
+                                {% if user.profile.avatar %}
+                                    <img src="{{ user.profile.avatar.url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}
+                            </span>
+                            <span>
+                                <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                <small>Мой профиль</small>
+                            </span>
+                        </a>
+                        <a class="btn-icon" href="{% url 'logout' %}" aria-label="Выйти">{% icon 'log-out' %}
+                        </a>
                     </div>
-                {% endif %}
+                </aside>
+                <main class="main" id="main">
+                    <div class="page-wrapper">
+                        {% include 'knowledge/_messages.html' %}
+                        {% block content %}
+                        {% endblock %}
+                    </div>
+                </main>
             </div>
-        </aside>
-
-        <!-- Main content -->
-        <main class="main" id="main">
-            <div class="page-wrapper">
-                {% if messages %}
-                    <div class="messages">
-                        {% for message in messages %}
-                            <div class="msg msg-{{ message.tags }}">{{ message }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-
-                {% block content %}{% endblock %}
-            </div>
-        </main>
-    </div>
-
-    <script src="{% static 'js/main.js' %}"></script>
-    <script>
-        function toggleSidebar() {
-            var sidebar = document.getElementById('sidebar');
-            var main = document.getElementById('main');
-            if (window.innerWidth <= 768) {
-                // Мобильный режим: сайдбар выезжает поверх контента
-                sidebar.classList.toggle('sidebar--open');
-                main.classList.toggle('main--shifted');
-            } else {
-                // Десктоп: сайдбар сворачивается, контент занимает всю ширину
-                var collapsed = sidebar.classList.toggle('sidebar--collapsed');
-                main.classList.toggle('main--full');
-                try {
-                    localStorage.setItem('kb_sidebar_collapsed', collapsed ? '1' : '0');
-                } catch (e) {}
-            }
-        }
-
-        (function restoreSidebarState() {
-            try {
-                if (window.innerWidth > 768 && localStorage.getItem('kb_sidebar_collapsed') === '1') {
-                    document.getElementById('sidebar').classList.add('sidebar--collapsed');
-                    document.getElementById('main').classList.add('main--full');
-                }
-            } catch (e) {}
-        })();
-
-        // Функция переключения секции
-        function toggleSection(wrapper, btn) {
-            var children = wrapper.querySelector('.section-children');
-            if (!children) return;
-            var isOpen = !children.classList.contains('section-children--hidden');
-            if (isOpen) {
-                children.classList.add('section-children--hidden');
-                if (btn) {
-                    btn.classList.remove('section-header__chevron-btn--open');
-                    btn.classList.add('section-header__chevron-btn--closed');
-                }
-            } else {
-                // Закрываем все другие открытые секции
-                document.querySelectorAll('.section-children:not(.section-children--hidden)').forEach(function(el) {
-                    el.classList.add('section-children--hidden');
-                });
-                document.querySelectorAll('.section-header__chevron-btn--open').forEach(function(b) {
-                    b.classList.remove('section-header__chevron-btn--open');
-                    b.classList.add('section-header__chevron-btn--closed');
-                });
-                // Открываем выбранную
-                children.classList.remove('section-children--hidden');
-                if (btn) {
-                    btn.classList.remove('section-header__chevron-btn--closed');
-                    btn.classList.add('section-header__chevron-btn--open');
-                }
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Стрелка ▼ для всех секций (разделы, недавние, закладки)
-            document.querySelectorAll('.section-header__chevron-btn').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var wrapper = this.closest('.section-wrapper');
-                    toggleSection(wrapper, this);
-                });
-            });
-
-            // Клик по заголовку раздела (кроме стрелки) — сворачивает/разворачивает
-            document.querySelectorAll('.section-header').forEach(function(header) {
-                header.addEventListener('click', function(e) {
-                    // Если кликнули по ссылке внутри заголовка — не перехватываем
-                    if (e.target.closest('a')) return;
-                    if (e.target.closest('.section-header__chevron-btn')) return;
-                    var wrapper = this.closest('.section-wrapper');
-                    if (!wrapper) return;
-                    var btn = wrapper.querySelector('.section-header__chevron-btn');
-                    toggleSection(wrapper, btn);
-                });
-            });
-
-            // Клик по названию раздела в списке «Разделы» — тоже разворачивает список,
-            // а не уходит на отдельную страницу (так разделы ведут себя как папки).
-            document.querySelectorAll('#sidebar-sections .section-header__link').forEach(function(link) {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    var wrapper = this.closest('.section-wrapper');
-                    if (!wrapper) return;
-                    var btn = wrapper.querySelector('.section-header__chevron-btn');
-                    toggleSection(wrapper, btn);
-                });
-            });
-        });
-    </script>
-    {% block extra_scripts %}{% endblock %}
-</body>
+        {% endblock %}
+        {% if editor_save_receipt %}{{ editor_save_receipt|json_script:'editor-save-receipt' }}{% endif %}
+        <div id="ui-announcement" class="sr-only" role="status" aria-live="polite">
+        </div>
+        <script src="{% static 'js/main.js' %}">
+        </script>
+        {% block extra_scripts %}
+        {% endblock %}
+    </body>
 </html>

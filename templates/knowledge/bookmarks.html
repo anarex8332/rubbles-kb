@@ -1,40 +1,42 @@
 {% extends 'base.html' %}
+{% load ui %}
 {% block title %}Закладки — RUBBLES KB{% endblock %}
 
 {% block content %}
-<div class="breadcrumbs">
-    <a href="{% url 'knowledge:home' %}">Главная</a>
-    <span class="breadcrumbs__sep">/</span>
-    <span>Закладки</span>
-</div>
-
-<div class="page-header">
-    <h1 class="page-title"><i class="fas fa-bookmark"></i> Закладки</h1>
-</div>
-
-<div class="card">
-    <div class="card__body">
-        {% if bookmarks %}
-            <ul class="article-list">
-                {% for bm in bookmarks %}
-                    <li class="article-list__item">
-                        <a href="{% url 'knowledge:article_detail' bm.article.slug %}" class="article-list__link">
-                            <span class="article-list__title">{{ bm.article.title }}</span>
-                            <span class="article-list__meta">
-                                <span>{{ bm.article.section.name|default:'Без раздела' }}</span>
-                                <span>{{ bm.created_at|date:"d.m.Y H:i" }}</span>
-                            </span>
-                        </a>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state__icon">🔖</div>
-                <div class="empty-state__title">У вас нет закладок</div>
-                <div class="empty-state__text">Добавляйте статьи в закладки, чтобы быстро находить их</div>
-            </div>
-        {% endif %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Закладки</span>
     </div>
-</div>
+
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'bookmark' '' %} Закладки</h1>
+    </div>
+
+    <div class="card">
+        <div class="card__body">
+            {% if bookmarks %}
+                <ul class="article-list">
+                    {% for bm in bookmarks %}
+                        <li class="article-list__item">
+                            <a href="{% url 'knowledge:article_detail' bm.article.slug %}" class="article-list__link">
+                                <span class="article-list__title">{{ bm.article.title }}</span>
+                                <span class="article-list__meta">
+                                    <span>{{ bm.article.section.name|default:'Без раздела' }}</span>
+                                    <span>{{ bm.created_at|date:"d.m.Y H:i" }}</span>
+                                </span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state__icon">{% icon 'bookmark' '' %}
+                    </div>
+                    <div class="empty-state__title">У вас нет закладок</div>
+                    <div class="empty-state__text">Добавляйте статьи в закладки, чтобы быстро находить их</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 {% endblock %}

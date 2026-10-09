@@ -1,0 +1,22 @@
+{% load ui %}
+<details class="nav-branch" data-nav-key="section-{{ section.pk }}">
+    <summary class="nav-branch__summary">
+        {% icon 'folder' '' %}
+        <span>{{ section.name }}</span>
+    </summary>
+    <div class="nav-branch__children">
+        <a href="{% url 'knowledge:section_detail' section.slug %}" class="nav-link nav-link--overview">Обзор раздела</a>
+        {% for child in section.nav_children %}
+            {% include 'knowledge/_sidebar_section.html' with section=child %}
+        {% endfor %}
+        {% for article in section.nav_articles %}
+            <a href="{% url 'knowledge:article_detail' article.slug %}" class="nav-link nav-link--article">
+                {% icon 'file-text' '' %}
+                <span>{{ article.title }}</span>
+            </a>
+        {% endfor %}
+        {% if not section.nav_children and not section.nav_articles %}
+            <div class="nav-empty">В разделе пока нет статей</div>
+        {% endif %}
+    </div>
+</details>

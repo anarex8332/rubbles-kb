@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from knowledge.models import Section, Article, Changelog
+from knowledge.release_notes import REDESIGN_RELEASE
 from django.contrib.auth.models import User
 from django.utils import timezone
 
@@ -785,6 +786,7 @@ class Command(BaseCommand):
             },
         ]
 
+        changelogs.append(REDESIGN_RELEASE)
         for cl in changelogs:
             Changelog.objects.get_or_create(
                 version=cl['version'],

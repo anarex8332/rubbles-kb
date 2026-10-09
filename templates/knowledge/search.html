@@ -1,44 +1,46 @@
 {% extends 'base.html' %}
+{% load ui %}
 {% block title %}Поиск — RUBBLES KB{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1 class="page-title"><i class="fas fa-search"></i> Поиск</h1>
-</div>
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'search' '' %} Поиск</h1>
+    </div>
 
-<form action="{% url 'knowledge:search' %}" method="GET" class="search-form" style="max-width: 600px; margin-bottom: 24px;">
-    <i class="fas fa-search"></i>
-    <input type="text" name="q" value="{{ query }}" placeholder="Поиск по базе знаний..." class="search-input" autofocus>
-    <button type="submit" class="btn btn-primary" style="border-radius: 0 5px 5px 0; margin-left: -1px;"><i class="fas fa-search"></i> Найти</button>
-</form>
+    <form action="{% url 'knowledge:search' %}" method="GET" class="search-form">
+        {% icon 'search' '' %}
+        <input type="text" name="q" value="{{ query }}" placeholder="Поиск по базе знаний..." class="search-input" autofocus>
+        <button type="submit" class="btn btn-primary">{% icon 'search' '' %} Найти</button>
+    </form>
 
-{% if query %}
-    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">Найдено статей: {{ articles|length }}</p>
-    {% if articles %}
-        <div class="card">
-            <div class="card__body">
-                <ul class="article-list">
-                    {% for article in articles %}
-                        <li class="article-list__item">
-                            <a href="{% url 'knowledge:article_detail' article.slug %}" class="article-list__link">
-                                <span class="article-list__title">{{ article.title }}</span>
-                                <span class="article-list__meta">
-                                    <span>📁 {{ article.section.name|default:'Без раздела' }}</span>
-                                    <span>🕐 {{ article.updated_at|date:"d.m.Y" }}</span>
-                                    <span>👁 {{ article.views_count }}</span>
-                                </span>
-                            </a>
-                        </li>
-                    {% endfor %}
-                </ul>
+    {% if query %}
+        <p>Найдено статей: {{ articles|length }}</p>
+        {% if articles %}
+            <div class="card">
+                <div class="card__body">
+                    <ul class="article-list">
+                        {% for article in articles %}
+                            <li class="article-list__item">
+                                <a href="{% url 'knowledge:article_detail' article.slug %}" class="article-list__link">
+                                    <span class="article-list__title">{{ article.title }}</span>
+                                    <span class="article-list__meta">
+                                        <span>{% icon 'folder' '' %} {{ article.section.name|default:'Без раздела' }}</span>
+                                        <span>{% icon 'clock' '' %} {{ article.updated_at|date:"d.m.Y" }}</span>
+                                        <span>{% icon 'eye' '' %} {{ article.views_count }}</span>
+                                    </span>
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
-        </div>
-    {% else %}
-        <div class="empty-state">
-            <div class="empty-state__icon">🔍</div>
-            <div class="empty-state__title">По запросу «{{ query }}» ничего не найдено</div>
-            <div class="empty-state__text">Попробуйте изменить запрос</div>
-        </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state__icon">{% icon 'search' '' %}
+                </div>
+                <div class="empty-state__title">По запросу «{{ query }}» ничего не найдено</div>
+                <div class="empty-state__text">Попробуйте изменить запрос</div>
+            </div>
+        {% endif %}
     {% endif %}
-{% endif %}
 {% endblock %}

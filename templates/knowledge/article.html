@@ -1,309 +1,175 @@
 {% extends 'base.html' %}
-{% block title %}{{ article.title }} — RUBBLES KB{% endblock %}
-
+{% load static ui %}
+{% block title %}{{ article.title }} — RUBBLES{% endblock %}
 {% block content %}
-<div class="breadcrumbs">
-    <a href="{% url 'knowledge:home' %}">Главная</a>
-    <span class="breadcrumbs__sep">/</span>
-    {% if article.section %}
-        <a href="{% url 'knowledge:section_detail' article.section.slug %}">{{ article.section.name }}</a>
-        <span class="breadcrumbs__sep">/</span>
-    {% endif %}
-    <span>{{ article.title|truncatechars:50 }}</span>
-</div>
-
-<div class="article-toolbar">
-    <div class="article-toolbar__left">
-        <a href="{% if article.section %}{% url 'knowledge:section_detail' article.section.slug %}{% else %}{% url 'knowledge:home' %}{% endif %}" class="btn btn-link">
-            <i class="fas fa-arrow-left"></i> Назад
-        </a>
-    </div>
-    <div class="article-toolbar__right">
-        {% if user.is_authenticated %}
-            <a href="{% url 'knowledge:article_edit' article.slug %}" class="btn btn-outline btn-sm">
-                <i class="fas fa-edit"></i> Редактировать
-            </a>
-            <a href="{% url 'knowledge:article_version_history' article.slug %}" class="btn-icon" title="История версий">
-                <i class="fas fa-history"></i>
-            </a>
-            <a href="{% url 'knowledge:toggle_bookmark' article.slug %}" class="btn-icon" title="Закладка">
-                {% if is_bookmarked %}
-                    <i class="fas fa-bookmark" style="color: var(--primary)"></i>
-                {% else %}
-                    <i class="far fa-bookmark"></i>
-                {% endif %}
-            </a>
-            <form action="{% url 'knowledge:mark_outdated' article.slug %}" method="POST" style="display:inline">
-                {% csrf_token %}
-                <button type="submit" class="btn-icon" title="{% if article.is_outdated %}Снять отметку устаревшей{% else %}Пометить устаревшей{% endif %}">
-                    {% if article.is_outdated %}
-                        <i class="fas fa-undo"></i>
-                    {% else %}
-                        <i class="fas fa-flag"></i>
-                    {% endif %}
-                </button>
-            </form>
-            <form action="{% url 'knowledge:confirm_fresh' article.slug %}" method="POST" style="display:inline">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline btn-sm" title="Подтвердить, что содержание проверено и актуально">
-                    <i class="fas fa-check-circle"></i> Актуально
-                </button>
-            </form>
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        {% if article.section %}
+            <span>/</span>
+            <a href="{% url 'knowledge:section_detail' article.section.slug %}">{{ article.section.name }}</a>
         {% endif %}
-        <button class="btn-icon" onclick="copyArticleLink()" title="Копировать ссылку">
-            <i class="fas fa-link"></i>
-        </button>
+        <span>/</span>
+        <span>Статья</span>
     </div>
-</div>
-
-<article class="article-page">
-    <div class="article-header">
-        <h1 class="article-title">
-            {{ article.title }}
+    <header class="article-header">
+        <div class="article-kicker">
+            <span class="tag">{{ article.section.name|default:'Без раздела' }}</span>
             {% if article.is_outdated %}
-                <span class="tag tag-warning"><i class="fas fa-clock"></i> Устаревшая</span>
+                <span class="tag tag-warning">Требует пересмотра</span>{% elif article.last_verified_at %}
+                <span class="tag tag-success">Актуальность подтверждена</span>{% else %}
+                <span class="tag">Не проверено</span>
             {% endif %}
-            {% if article.status == 'draft' %}
-                <span class="tag tag-info">Черновик</span>
-            {% endif %}
-        </h1>
-        <div class="article-meta">
-            <span><i class="fas fa-user"></i> {{ article.author.username|default:'—' }}</span>
-            <span><i class="fas fa-calendar"></i> {{ article.created_at|date:"d.m.Y" }}</span>
-            <span><i class="fas fa-clock"></i> {{ article.updated_at|date:"d.m.Y H:i" }}</span>
-            <span><i class="fas fa-tag"></i> {{ article.section.name|default:'Без раздела' }}</span>
-            <span><i class="fas fa-code-branch"></i> v{{ article.version }}</span>
-            <span><i class="fas fa-eye"></i> {{ article.views_count }}</span>
         </div>
-        <div class="article-meta" style="margin-top: 6px;">
-            <span title="Ответственный за содержание (КЗ-07)">
-                <i class="fas fa-user-check"></i>
-                {% if article.responsible %}{{ article.responsible.username }}{% else %}<span style="color: var(--error)">не назначен</span>{% endif %}
-            </span>
-            <span title="Дата последнего подтверждения актуальности (КЗ-04)">
-                <i class="fas fa-calendar-check"></i>
-                {% if article.last_verified_at %}
-                    подтверждено {{ article.last_verified_at|date:"d.m.Y" }}{% if article.last_verified_by %} ({{ article.last_verified_by.username }}){% endif %}
-                {% else %}
-                    <span style="color: var(--warning)">не подтверждалось</span>
-                {% endif %}
-            </span>
+        <h1 class="article-title">{{ article.title }}</h1>
+        <div class="article-byline">
+            <span>Автор: {{ article.author.username|default:'—' }}</span>
+            <span>Обновлено {{ article.updated_at|date:'d.m.Y' }}</span>
+            <span>Версия {{ article.version }}</span>
         </div>
-        {% if user.is_authenticated %}
-        <form action="{% url 'knowledge:set_responsible' article.slug %}" method="POST" id="responsible-form" style="margin-top: 8px; display:flex; align-items:center; gap:6px;">
-            {% csrf_token %}
-            <label style="font-size:13px; color: var(--text-secondary);">Назначить ответственного:</label>
-            <div class="custom-select custom-select--sm" id="responsible-select" style="width:200px;">
-                <div class="custom-select__toggle">
-                    <span class="custom-select__toggle-label">{% if article.responsible %}{{ article.responsible.username }}{% else %}— не назначен —{% endif %}</span>
-                    <i class="fas fa-chevron-down custom-select__toggle-arrow"></i>
+        <div class="article-actions">
+            <a href="{% url 'knowledge:article_edit' article.slug %}" class="btn btn-primary">{% icon 'pencil' %} Редактировать</a>
+            <a href="{% url 'knowledge:toggle_bookmark' article.slug %}" class="btn btn-outline" aria-label="{% if is_bookmarked %}Удалить из закладок{% else %}Добавить в закладки{% endif %}">{% icon 'bookmark' %}
+                <span>
+                    {% if is_bookmarked %}В закладках{% else %}В закладки{% endif %}
+                </span>
+            </a>
+            <details class="action-menu">
+                <summary class="btn btn-outline" aria-label="Другие действия">{% icon 'ellipsis' %}
+                </summary>
+                <div class="action-menu__panel">
+                    <a href="{% url 'knowledge:article_version_history' article.slug %}">{% icon 'clock' %} История версий</a>
+                    <button type="button" data-copy-link>{% icon 'link' %} Копировать ссылку</button>
+                    <form action="{% url 'knowledge:mark_outdated' article.slug %}" method="post">{% csrf_token %}
+                        <button type="submit">{% icon 'flag' %}
+                            {% if article.is_outdated %}Снять отметку устаревания{% else %}Пометить устаревшей{% endif %}
+                        </button>
+                    </form>
+                    <form action="{% url 'knowledge:confirm_fresh' article.slug %}" method="post">{% csrf_token %}
+                        <button type="submit">{% icon 'circle-check' %} Подтвердить актуальность</button>
+                    </form>
                 </div>
-                <div class="custom-select__dropdown">
-                    <div class="custom-select__option" data-value="" data-label="— не назначен —" {% if not article.responsible %}data-selected{% endif %}>— не назначен —</div>
-                    {% for u in all_users %}
-                        <div class="custom-select__option" data-value="{{ u.id }}" data-label="{{ u.username }}" {% if article.responsible_id == u.id %}data-selected{% endif %}>{{ u.username }}</div>
-                    {% endfor %}
-                </div>
-                <input type="hidden" name="responsible" value="{{ article.responsible_id|default:'' }}">
-            </div>
-        </form>
-        {% endif %}
-    </div>
-
-    <div class="article-content">
-        {{ article.content|safe }}
-    </div>
-
-    <section class="card" style="margin-bottom: 16px;">
-        <div class="card__header">
-            <h2><i class="fas fa-link"></i> Связанные источники (БТ, ТЗ, YouTrack, Git)</h2>
+            </details>
+            <span id="copy-feedback" class="form-help" role="status">
+            </span>
         </div>
-        <div class="card__body">
-            {% if article.related_links.all %}
-                <ul style="list-style:none; padding:0; margin:0 0 12px;">
+    </header>
+    <div class="article-layout">
+        <div class="article-reading">
+            <details class="article-management">
+                <summary>Ответственный и проверка {% icon 'chevron-down' %}
+                </summary>
+                <div class="management-body">
+                    <p>Ответственный: <strong>{{ article.responsible.username|default:'не назначен' }}</strong>
+                    </p>
+                    <p class="muted">
+                        {% if article.last_verified_at %}Проверено {{ article.last_verified_at|date:'d.m.Y' }}{% if article.last_verified_by %} — {{ article.last_verified_by.username }}{% endif %}
+                        {% else %}Актуальность содержания ещё не подтверждена.{% endif %}
+                    </p>
+                    <form method="post" action="{% url 'knowledge:set_responsible' article.slug %}" class="inline-form">{% csrf_token %}
+                        <label class="sr-only" for="responsible">Ответственный за содержание</label>
+                        <select name="responsible" id="responsible">
+                            <option value="">Не назначен</option>
+                            {% for person in all_users %}
+                                <option value="{{ person.pk }}" {% if person.pk == article.responsible_id %}selected{% endif %}>{{ person.get_full_name|default:person.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-outline btn-sm" type="submit">Сохранить</button>
+                    </form>
+                </div>
+            </details>
+            <article class="article-content" id="article-content">{{ article.content|safe }}</article>
+            <section class="article-support">
+                <div class="section-heading">
+                    <h2>Связанные источники</h2>
+                </div>
+                <ul class="related-links">
                     {% for link in article.related_links.all %}
-                        <li style="display:flex; align-items:center; gap:8px; padding:4px 0;">
-                            <span class="tag tag-info">{{ link.get_link_type_display }}</span>
+                        <li>
+                            <span class="tag">{{ link.get_link_type_display }}</span>
                             <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label|default:link.url }}</a>
-                            {% if user.is_authenticated %}
-                                <form action="{% url 'knowledge:delete_related_link' article.slug link.id %}" method="POST" style="display:inline;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn-icon" title="Удалить связь" style="width:24px;height:24px;">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </form>
-                            {% endif %}
+                            <form method="post" action="{% url 'knowledge:delete_related_link' article.slug link.pk %}">{% csrf_token %}
+                                <button class="btn-icon" type="submit" aria-label="Удалить связь {{ link.label|default:link.url }}">{% icon 'x' %}
+                                </button>
+                            </form>
                         </li>
+                    {% empty %}
+                        <li class="muted">Связанных источников пока нет.</li>
                     {% endfor %}
                 </ul>
-            {% else %}
-                <p style="color: var(--text-muted); font-size: 13px;">Связей пока нет.</p>
-            {% endif %}
-            {% if user.is_authenticated %}
-                <form action="{% url 'knowledge:add_related_link' article.slug %}" method="POST" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
-                    {% csrf_token %}
-                    <div class="custom-select custom-select--sm" id="linktype-select" style="width:150px;">
-                        <div class="custom-select__toggle">
-                            <span class="custom-select__toggle-label">БТ</span>
-                            <i class="fas fa-chevron-down custom-select__toggle-arrow"></i>
-                        </div>
-                        <div class="custom-select__dropdown">
-                            <div class="custom-select__option" data-value="bt" data-label="БТ" data-selected>БТ</div>
-                            <div class="custom-select__option" data-value="tz" data-label="ТЗ">ТЗ</div>
-                            <div class="custom-select__option" data-value="youtrack" data-label="YouTrack">YouTrack</div>
-                            <div class="custom-select__option" data-value="git" data-label="Git">Git</div>
-                            <div class="custom-select__option" data-value="docs" data-label="Документация">Документация</div>
-                            <div class="custom-select__option" data-value="other" data-label="Другое">Другое</div>
-                        </div>
-                        <input type="hidden" name="link_type" value="bt">
-                    </div>
-                    <input type="url" name="url" placeholder="https://..." required class="form-input" style="flex:1; min-width:180px;">
-                    <input type="text" name="label" placeholder="Назначение связи (необязательно)" class="form-input" style="flex:1; min-width:180px;">
-                    <button type="submit" class="btn btn-outline btn-sm"><i class="fas fa-plus"></i> Добавить</button>
-                </form>
-            {% endif %}
-        </div>
-    </section>
-
-    {% if article.allow_comments %}
-        <section class="card comments-section">
-            <div class="card__header">
-                <h2><i class="fas fa-comments"></i> Комментарии ({{ comments|length }})</h2>
-            </div>
-            <div class="card__body">
-                {% if user.is_authenticated %}
-                    <form action="{% url 'knowledge:add_comment' article.slug %}" method="POST" class="comment-form" id="comment-form">
-                        {% csrf_token %}
-                        <textarea name="text" rows="3" placeholder="Напишите комментарий... (Enter — отправить, Shift+Enter — новая строка)" required class="form-textarea" id="comment-text"></textarea>
-                        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane"></i> Отправить</button>
+                <details class="add-source">
+                    <summary>Добавить источник {% icon 'plus' %}
+                    </summary>
+                    <form action="{% url 'knowledge:add_related_link' article.slug %}" method="post" class="source-form">{% csrf_token %}
+                        <label>Тип<select name="link_type">
+                            <option value="bt">БТ</option>
+                            <option value="tz">ТЗ</option>
+                            <option value="youtrack">YouTrack</option>
+                            <option value="git">Git</option>
+                            <option value="docs">Документация</option>
+                            <option value="other">Другое</option>
+                        </select>
+                        </label>
+                        <label>Адрес<input name="url" type="url" placeholder="https://…" required>
+                        </label>
+                        <label class="settings-wide">Название<input name="label" placeholder="Краткое описание источника">
+                        </label>
+                        <button class="btn btn-outline" type="submit">Добавить</button>
                     </form>
-                {% endif %}
-
-                {% if comments %}
+                </details>
+            </section>
+            {% if article.allow_comments %}
+                <section class="article-support comments-section">
+                    <div class="section-heading">
+                        <h2>Обсуждение <span class="muted">{{ comments|length }}</span>
+                        </h2>
+                    </div>
+                    <form action="{% url 'knowledge:add_comment' article.slug %}" method="post" id="comment-form" class="comment-form">{% csrf_token %}
+                        <label class="sr-only" for="comment-text">Комментарий</label>
+                        <textarea id="comment-text" name="text" rows="3" required placeholder="Задайте вопрос или поделитесь уточнением…">
+                        </textarea>
+                        <div class="comment-form__footer">
+                            <span class="form-help">Enter — отправить, Shift+Enter — новая строка</span>
+                            <button class="btn btn-primary btn-sm" type="submit">Отправить {% icon 'send' %}
+                            </button>
+                        </div>
+                    </form>
                     <div class="comments-list">
                         {% for comment in comments %}
-                            <div class="comment" style="{% if comment.is_resolved %}opacity:0.6;{% endif %}">
-                                <div class="comment__date">{{ comment.created_at|date:"d.m.Y H:i" }}</div>
+                            <article class="comment {% if comment.is_resolved %}comment--resolved{% endif %}">
                                 <div class="comment__header">
-                                    <span class="comment__author">{{ comment.author.username }}</span>
+                                    <strong>{{ comment.author.username }}</strong>
+                                    <time>{{ comment.created_at|date:'d.m.Y H:i' }}</time>
                                     {% if comment.is_resolved %}
-                                        <span class="tag" style="background:var(--success,#2e7d32);color:#fff;">Разрешено{% if comment.resolved_by %} — {{ comment.resolved_by.username }}{% endif %}</span>
-                                    {% endif %}
-                                    {% if user.is_authenticated %}
-                                        <form action="{% url 'knowledge:toggle_comment_resolved' article.slug comment.id %}" method="POST" class="comment__resolve-form">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-link btn-sm" style="font-size:12px;">
-                                                {% if comment.is_resolved %}Снять отметку{% else %}Отметить разрешённым{% endif %}
-                                            </button>
-                                        </form>
+                                        <span class="tag tag-success">Разрешено</span>
                                     {% endif %}
                                 </div>
-                                <div class="comment__text">{{ comment.text }}</div>
-                            </div>
+                                <p class="comment__text">{{ comment.text }}</p>
+                                <form action="{% url 'knowledge:toggle_comment_resolved' article.slug comment.pk %}" method="post">{% csrf_token %}
+                                    <button type="submit" class="btn btn-link btn-sm">
+                                        {% if comment.is_resolved %}Вернуть в обсуждение{% else %}Отметить разрешённым{% endif %}
+                                    </button>
+                                </form>
+                            </article>
+                        {% empty %}
+                            <p class="empty-state">Обсуждение пока пусто. Первый комментарий может быть вашим.</p>
                         {% endfor %}
                     </div>
-                {% else %}
-                    <div class="empty-state">
-                        <div class="empty-state__icon">💬</div>
-                        <div class="empty-state__text">Комментариев пока нет</div>
-                    </div>
-                {% endif %}
-            </div>
-        </section>
-    {% endif %}
-</article>
+                </section>
+            {% endif %}
+        </div>
+        <aside class="article-toc" id="article-toc" hidden>
+            <details open>
+                <summary>На этой странице {% icon 'chevron-down' %}
+                </summary>
+                <nav aria-label="Оглавление статьи">
+                </nav>
+            </details>
+        </aside>
+    </div>
 {% endblock %}
-
-{% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>
-mermaid.initialize({
-    startOnLoad: false,
-    theme: 'base',
-    themeVariables: {
-        primaryColor: '#0052CC',
-        primaryTextColor: '#fff',
-        lineColor: '#DFE1E6',
-    },
-    securityLevel: 'loose',
-});
-document.addEventListener('DOMContentLoaded', function() {
-    if (document.querySelector('.mermaid')) {
-        mermaid.run();
-    }
-});
-</script>
-{% endblock %}
-
 {% block extra_scripts %}
-<script>
-function copyArticleLink() {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-        const btn = event.target.closest('.btn-icon');
-        const original = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i>';
-        setTimeout(() => btn.innerHTML = original, 2000);
-    });
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    var commentText = document.getElementById('comment-text');
-    var commentForm = document.getElementById('comment-form');
-    if (commentText && commentForm) {
-        commentText.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (commentText.value.trim()) {
-                    commentForm.submit();
-                }
-            }
-        });
-    }
-
-    // Красивые выпадающие списки вместо системного <select>
-    function initCustomSelect(containerId, onChange) {
-        var container = document.getElementById(containerId);
-        if (!container) return;
-        var toggle = container.querySelector('.custom-select__toggle');
-        var label = container.querySelector('.custom-select__toggle-label');
-        var dropdown = container.querySelector('.custom-select__dropdown');
-        var hidden = container.querySelector('input[type="hidden"]');
-        if (!toggle || !dropdown || !hidden) return;
-
-        toggle.addEventListener('click', function (e) {
-            e.stopPropagation();
-            document.querySelectorAll('.custom-select__dropdown--open').forEach(function (d) {
-                if (d !== dropdown) d.classList.remove('custom-select__dropdown--open');
-            });
-            dropdown.classList.toggle('custom-select__dropdown--open');
-        });
-
-        dropdown.querySelectorAll('.custom-select__option').forEach(function (opt) {
-            opt.addEventListener('click', function (e) {
-                e.stopPropagation();
-                hidden.value = this.dataset.value;
-                label.textContent = this.dataset.label;
-                dropdown.querySelectorAll('.custom-select__option').forEach(function (o) {
-                    o.removeAttribute('data-selected');
-                });
-                this.setAttribute('data-selected', '');
-                dropdown.classList.remove('custom-select__dropdown--open');
-                if (onChange) onChange(hidden.value);
-            });
-        });
-    }
-
-    document.addEventListener('click', function () {
-        document.querySelectorAll('.custom-select__dropdown--open').forEach(function (d) {
-            d.classList.remove('custom-select__dropdown--open');
-        });
-    });
-
-    initCustomSelect('responsible-select', function () {
-        document.getElementById('responsible-form').submit();
-    });
-    initCustomSelect('linktype-select');
-});
-</script>
+    <script src="{% static 'vendor/mermaid.min.js' %}">
+    </script>
+    <script src="{% static 'js/article.js' %}">
+    </script>
 {% endblock %}

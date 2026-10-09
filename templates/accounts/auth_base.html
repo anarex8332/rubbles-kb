@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load static ui %}
+{% block body_class %}auth-layout{% endblock %}
+{% block app_shell %}
+    <header class="auth-header">
+        <a class="wordmark" href="{% url 'knowledge:home' %}">RUBBLES<span class="brand-square" aria-hidden="true">
+        </span>
+        </a>
+        <label class="theme-control">
+            <span class="sr-only">Тема оформления</span>{% icon 'monitor' %}
+            <select data-theme-select aria-label="Тема оформления">
+                <option value="system">Системная</option>
+                <option value="light">Светлая</option>
+                <option value="dark">Тёмная</option>
+            </select>
+        </label>
+    </header>
+    <main id="main" class="auth-main">
+        <section class="auth-intro">
+            <span class="auth-caption">База знаний команды</span>
+            <h1>Опыт команды.<br>В одном месте.</h1>
+            <p>Процессы, решения и ответы, которые помогают двигаться дальше.</p>
+            <div class="auth-index">
+                <div>
+                    <span>Работа</span>
+                    <strong>Процессы и регламенты</strong>
+                </div>
+                <div>
+                    <span>Люди</span>
+                    <strong>Общий опыт команды</strong>
+                </div>
+                <div>
+                    <span>Контекст</span>
+                    <strong>Решения и их история</strong>
+                </div>
+            </div>
+            <span class="auth-signature">RUBBLES Planning Force</span>
+        </section>
+        <section class="auth-form-panel">
+            {% include 'knowledge/_messages.html' %}
+            {% block auth_content %}
+            {% endblock %}
+        </section>
+    </main>
+    <footer class="auth-footer">Всё, что важно знать для работы.</footer>
+{% endblock %}

@@ -1,129 +1,91 @@
 {% extends 'base.html' %}
-{% load static %}
-{% block title %}RUBBLES Planning Force — База знаний{% endblock %}
-
+{% load ui %}
 {% block content %}
-<!-- Hero -->
-<div class="dashboard-hero">
-    <div class="dashboard-hero__icon">
-        <i class="fas fa-brain"></i>
-    </div>
-    <div class="dashboard-hero__content">
-        <h1 class="dashboard-hero__title">RUBBLES Planning Force</h1>
-        <p class="dashboard-hero__subtitle">База знаний для обеспечения качества и непрерывности бизнес-процессов</p>
-    </div>
-</div>
-
-<!-- Search -->
-<form action="{% url 'knowledge:search' %}" method="GET" class="dashboard-search">
-    <i class="fas fa-search dashboard-search__icon"></i>
-    <input type="text" name="q" placeholder="Поиск по базе знаний..." class="dashboard-search__input">
-</form>
-
-<!-- Recent Updates -->
-<section class="dashboard-card">
-    <div class="dashboard-card__header">
-        <h2><i class="fas fa-clock"></i> Последние обновления</h2>
-    </div>
-    <div class="dashboard-card__body">
-        {% if recent_articles %}
-            {% for article in recent_articles %}
-                <a href="{% url 'knowledge:article_detail' article.slug %}" class="dashboard-article-item">
-                    <div class="dashboard-article-item__title">{{ article.title }}</div>
-                    <div class="dashboard-article-item__meta">
-                        <span>{{ article.section.name|default:'Без раздела' }}</span>
-                        <span>·</span>
-                        <span>{{ article.updated_at|date:"d.m.Y H:i" }}</span>
-                        <span>·</span>
-                        <span>{{ article.author.username|default:'—' }}</span>
+    <section class="home-heading">
+        <div>
+            <p class="page-caption">RUBBLES Planning Force</p>
+            <h1>База знаний<span class="heading-period">.</span>
+            </h1>
+            <p class="page-description">Общий опыт. Понятные процессы. Решения под рукой.</p>
+        </div>
+        <a href="{% url 'knowledge:article_create' %}" class="btn btn-primary">{% icon 'plus' %} Новая статья</a>
+    </section>
+    <form class="home-search" action="{% url 'knowledge:search' %}" role="search">{% icon 'search' %}
+        <input name="q" placeholder="Что вы хотите найти?" aria-label="Что вы хотите найти?">
+        <button type="submit" class="btn-icon" aria-label="Найти">{% icon 'arrow-right' %}
+        </button>
+    </form>
+    <section class="home-section">
+        <div class="section-heading">
+            <h2>Разделы</h2>
+            <span class="muted">{{ nav_sections|length }} направлений</span>
+        </div>
+        <div class="section-directory">
+            {% for section in nav_sections %}
+                <a class="directory-item" href="{% url 'knowledge:section_detail' section.slug %}">
+                    <div class="directory-item__top">{% icon 'folder' %}
+                        {% icon 'arrow-up-right' %}
                     </div>
+                    <h3>{{ section.name }}</h3>
+                    <p>{{ section.description|default:'Материалы и инструкции раздела'|truncatechars:90 }}</p>
+                    <span class="muted">Статей: {{ section.nav_articles|length }}</span>
                 </a>
+            {% empty %}
+                <div class="empty-state">Разделов пока нет. Их можно добавить в панели управления.</div>
             {% endfor %}
-        {% else %}
-            <div class="dashboard-empty">
-                <div class="dashboard-empty__icon">📝</div>
-                <div class="dashboard-empty__text">База знаний пуста</div>
+        </div>
+    </section>
+    <div class="home-columns">
+        <section>
+            <div class="section-heading">
+                <h2>Последние обновления</h2>
+                <span class="status-dot-label">Актуальные материалы</span>
             </div>
-        {% endif %}
-    </div>
-</section>
-
-<!-- Two columns: Popular + Sections -->
-<div class="dashboard-grid">
-    <!-- Popular articles -->
-    <section class="dashboard-card dashboard-card--wide">
-        <div class="dashboard-card__header">
-            <h2><i class="fas fa-fire"></i> Популярные статьи</h2>
-        </div>
-        <div class="dashboard-card__body">
-            {% if popular_articles %}
-                {% for article in popular_articles %}
-                    <a href="{% url 'knowledge:article_detail' article.slug %}" class="dashboard-article-item">
-                        <div class="dashboard-article-item__row">
-                            <div class="dashboard-article-item__title">{{ article.title }}</div>
-                            <span class="dashboard-views-badge">👁 {{ article.views_count }}</span>
-                        </div>
-                        <div class="dashboard-article-item__meta">
-                            <span>{{ article.section.name|default:'Без раздела' }}</span>
-                            <span>·</span>
-                            <span>{{ article.updated_at|date:"d.m.Y" }}</span>
-                            <span>·</span>
-                            <span>{{ article.author.username|default:'—' }}</span>
-                        </div>
+            <div class="article-feed">
+                {% for article in recent_articles %}
+                    <a href="{% url 'knowledge:article_detail' article.slug %}" class="feed-row">
+                        <span class="feed-row__icon">{% icon 'file-text' %}
+                        </span>
+                        <span class="feed-row__body">
+                            <strong>{{ article.title }}</strong>
+                            <small>{{ article.section.name|default:'Без раздела' }}</small>
+                        </span>
+                        <time>{{ article.updated_at|date:'d.m' }}</time>
                     </a>
-                {% endfor %}
-            {% else %}
-                <div class="dashboard-empty">
-                    <div class="dashboard-empty__text">Нет популярных статей</div>
-                </div>
-            {% endif %}
-        </div>
-    </section>
-
-    <!-- Sections -->
-    <section class="dashboard-card dashboard-card--narrow">
-        <div class="dashboard-card__header">
-            <h2><i class="fas fa-folder"></i> Разделы</h2>
-        </div>
-        <div class="dashboard-card__body">
-            {% if nav_sections %}
-                {% for section in nav_sections %}
-                    <a href="{% url 'knowledge:section_detail' section.slug %}" class="dashboard-section-item">
-                        <span class="dashboard-section-item__icon">{{ section.icon|default:'📁' }}</span>
-                        <span class="dashboard-section-item__name">{{ section.name }}</span>
-                        <span class="dashboard-section-item__count">{{ section.articles.count }}</span>
-                    </a>
-                {% endfor %}
-            {% else %}
-                <div class="dashboard-empty">
-                    <div class="dashboard-empty__text">Нет разделов</div>
-                </div>
-            {% endif %}
-        </div>
-    </section>
-</div>
-
-<!-- Changelogs -->
-<section class="dashboard-card">
-    <div class="dashboard-card__header">
-        <h2><i class="fas fa-code-branch"></i> Последние релизы</h2>
-        <a href="{% url 'knowledge:changelog' %}" class="dashboard-link">Все релизы →</a>
-    </div>
-    <div class="dashboard-card__body">
-        {% if recent_changelogs %}
-            {% for clog in recent_changelogs %}
-                <div class="dashboard-article-item">
-                    <div class="dashboard-article-item__title">{{ clog.version }} — {{ clog.title }}</div>
-                    <div class="dashboard-article-item__meta">
-                        <span>{{ clog.created_at|date:"d.m.Y" }}</span>
+                {% empty %}
+                    <div class="empty-state">
+                        <p>Здесь появятся опубликованные статьи.</p>
+                        <a class="btn btn-outline" href="{% url 'knowledge:article_create' %}">Создать первую статью</a>
                     </div>
-                </div>
-            {% endfor %}
-        {% else %}
-            <div class="dashboard-empty">
-                <div class="dashboard-empty__text">Релизов пока нет</div>
+                {% endfor %}
             </div>
-        {% endif %}
+        </section>
+        <aside class="home-side">
+            <div class="section-heading">
+                <h2>Читают в команде</h2>
+            </div>
+            {% for article in popular_articles %}
+                <a class="popular-row" href="{% url 'knowledge:article_detail' article.slug %}">
+                    <strong>{{ article.title }}</strong>
+                    <span class="muted">{% icon 'eye' %} {{ article.views_count }}</span>
+                </a>
+            {% empty %}
+                <p class="muted">Популярные статьи появятся здесь.</p>
+            {% endfor %}
+            <div class="section-heading releases-heading">
+                <h2>Релизы</h2>
+                <a href="{% url 'knowledge:changelog' %}" aria-label="Все релизы">{% icon 'arrow-right' %}
+                </a>
+            </div>
+            {% for release in recent_changelogs %}
+                <div class="release-row">
+                    <span class="tag">{{ release.version }}</span>
+                    <strong>{{ release.title }}</strong>
+                    <time>{{ release.created_at|date:'d.m.Y' }}</time>
+                </div>
+            {% empty %}
+                <p class="muted">Новых релизов пока нет.</p>
+            {% endfor %}
+        </aside>
     </div>
-</section>
 {% endblock %}

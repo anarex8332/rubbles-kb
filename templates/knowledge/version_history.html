@@ -1,61 +1,65 @@
 {% extends 'base.html' %}
+{% load ui %}
 {% block title %}История версий — {{ article.title }} — RUBBLES KB{% endblock %}
 
 {% block content %}
-<div class="breadcrumbs">
-    <a href="{% url 'knowledge:home' %}">Главная</a>
-    <span class="breadcrumbs__sep">/</span>
-    <a href="{% url 'knowledge:article_detail' article.slug %}">{{ article.title|truncatechars:50 }}</a>
-    <span class="breadcrumbs__sep">/</span>
-    <span>Версии</span>
-</div>
-
-<div class="page-header">
-    <h1 class="page-title"><i class="fas fa-history"></i> История версий</h1>
-    <p class="page-description">{{ article.title }} · Текущая версия: <span class="tag tag-info">v{{ article.version }}</span></p>
-</div>
-
-<div class="card">
-    <div class="table-wrapper">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Версия</th>
-                    <th>Заголовок</th>
-                    <th>Автор</th>
-                    <th>Изменения</th>
-                    <th>Дата</th>
-                    <th>Действия</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for version in versions %}
-                    <tr>
-                        <td><strong>{{ version.version_number }}</strong></td>
-                        <td>{{ version.title|truncatechars:50 }}</td>
-                        <td>{{ version.author.username|default:'—' }}</td>
-                        <td>{{ version.change_summary|default:'—'|truncatechars:50 }}</td>
-                        <td>{{ version.created_at|date:"d.m.Y H:i" }}</td>
-                        <td>
-                            <form action="{% url 'knowledge:article_restore_version' article.slug version.version_number %}" method="POST" style="display:inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Восстановить эту версию?')">
-                                    <i class="fas fa-undo"></i> Восстановить
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="6">
-                            <div class="empty-state">
-                                <div class="empty-state__text">История версий пуста</div>
-                            </div>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <a href="{% url 'knowledge:article_detail' article.slug %}">{{ article.title|truncatechars:50 }}</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Версии</span>
     </div>
-</div>
+
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'clock' '' %} История версий</h1>
+        <p class="page-description">{{ article.title }} · Текущая версия: <span class="tag tag-info">v{{ article.version }}</span>
+        </p>
+    </div>
+
+    <div class="card">
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Версия</th>
+                        <th>Заголовок</th>
+                        <th>Автор</th>
+                        <th>Изменения</th>
+                        <th>Дата</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for version in versions %}
+                        <tr>
+                            <td>
+                                <strong>{{ version.version_number }}</strong>
+                            </td>
+                            <td>{{ version.title|truncatechars:50 }}</td>
+                            <td>{{ version.author.username|default:'—' }}</td>
+                            <td>{{ version.change_summary|default:'—'|truncatechars:50 }}</td>
+                            <td>{{ version.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>
+                                <form action="{% url 'knowledge:article_restore_version' article.slug version.version_number %}" method="POST">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Восстановить эту версию?')">
+                                        {% icon 'undo-2' '' %} Восстановить
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <div class="empty-state__text">История версий пуста</div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 {% endblock %}

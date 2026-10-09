@@ -1,40 +1,42 @@
 {% extends 'base.html' %}
+{% load ui %}
 {% block title %}Недавние — RUBBLES KB{% endblock %}
 
 {% block content %}
-<div class="breadcrumbs">
-    <a href="{% url 'knowledge:home' %}">Главная</a>
-    <span class="breadcrumbs__sep">/</span>
-    <span>Недавние</span>
-</div>
-
-<div class="page-header">
-    <h1 class="page-title"><i class="fas fa-history"></i> Недавние статьи</h1>
-</div>
-
-<div class="card">
-    <div class="card__body">
-        {% if articles %}
-            <ul class="article-list">
-                {% for rv in articles %}
-                    <li class="article-list__item">
-                        <a href="{% url 'knowledge:article_detail' rv.article.slug %}" class="article-list__link">
-                            <span class="article-list__title">{{ rv.article.title }}</span>
-                            <span class="article-list__meta">
-                                <span>{{ rv.article.section.name|default:'Без раздела' }}</span>
-                                <span>{{ rv.viewed_at|date:"d.m.Y H:i" }}</span>
-                            </span>
-                        </a>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state__icon">📖</div>
-                <div class="empty-state__title">Вы ещё не просматривали статьи</div>
-                <div class="empty-state__text">Начните с главной страницы</div>
-            </div>
-        {% endif %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Недавние</span>
     </div>
-</div>
+
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'clock' '' %} Недавние статьи</h1>
+    </div>
+
+    <div class="card">
+        <div class="card__body">
+            {% if articles %}
+                <ul class="article-list">
+                    {% for rv in articles %}
+                        <li class="article-list__item">
+                            <a href="{% url 'knowledge:article_detail' rv.article.slug %}" class="article-list__link">
+                                <span class="article-list__title">{{ rv.article.title }}</span>
+                                <span class="article-list__meta">
+                                    <span>{{ rv.article.section.name|default:'Без раздела' }}</span>
+                                    <span>{{ rv.viewed_at|date:"d.m.Y H:i" }}</span>
+                                </span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state__icon">{% icon 'file-text' '' %}
+                    </div>
+                    <div class="empty-state__title">Вы ещё не просматривали статьи</div>
+                    <div class="empty-state__text">Начните с главной страницы</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 {% endblock %}

@@ -1,77 +1,81 @@
 {% extends 'base.html' %}
+{% load ui %}
 {% block title %}{{ section.name }} — RUBBLES KB{% endblock %}
 
 {% block content %}
-<div class="page-header page-header--with-icon">
-    <div class="page-header__icon">{{ section.icon|default:'📁' }}</div>
-    <div class="page-header__content">
-        <h1 class="page-title">{{ section.name }}</h1>
-        {% if section.description %}
-            <p class="page-description">{{ section.description }}</p>
-        {% endif %}
+    <div class="page-header page-header--with-icon">
+        <div class="page-header__icon">{% icon 'folder' '' %}
+        </div>
+        <div class="page-header__content">
+            <h1 class="page-title">{{ section.name }}</h1>
+            {% if section.description %}
+                <p class="page-description">{{ section.description }}</p>
+            {% endif %}
+        </div>
     </div>
-</div>
 
-{% if sub_sections %}
+    {% if sub_sections %}
+        <section class="card">
+            <div class="card__header">
+                <h2>{% icon 'folder' '' %} Подразделы</h2>
+            </div>
+            <div class="card__body">
+                <div class="section-grid">
+                    {% for sub in sub_sections %}
+                        <a href="{% url 'knowledge:section_detail' sub.slug %}" class="section-card">
+                            <span class="section-card__icon">{% icon 'folder' '' %}
+                            </span>
+                            <span class="section-card__name">{{ sub.name }}</span>
+                            <span class="section-card__count">{{ sub.articles.count }} статей</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    {% endif %}
+
     <section class="card">
         <div class="card__header">
-            <h2><i class="fas fa-folder"></i> Подразделы</h2>
+            <h2>{% icon 'file-text' '' %} Статьи</h2>
+            {% if user.is_authenticated %}
+                <a href="{% url 'knowledge:article_create' %}?section={{ section.id }}" class="btn btn-primary btn-sm">
+                    {% icon 'plus' '' %} Новая статья
+                </a>
+            {% endif %}
         </div>
         <div class="card__body">
-            <div class="section-grid">
-                {% for sub in sub_sections %}
-                    <a href="{% url 'knowledge:section_detail' sub.slug %}" class="section-card">
-                        <span class="section-card__icon">{{ sub.icon|default:'📂' }}</span>
-                        <span class="section-card__name">{{ sub.name }}</span>
-                        <span class="section-card__count">{{ sub.articles.count }} статей</span>
-                    </a>
-                {% endfor %}
-            </div>
+            {% if articles %}
+                <ul class="article-list">
+                    {% for article in articles %}
+                        <li class="article-list__item">
+                            <a href="{% url 'knowledge:article_detail' article.slug %}" class="article-list__link">
+                                <span class="article-list__title">
+                                    {{ article.title }}
+                                    {% if article.is_outdated %}
+                                        <span class="tag tag-warning">Устарела</span>
+                                    {% endif %}
+                                </span>
+                                <span class="article-list__meta">
+                                    <span>{% icon 'user' '' %} {{ article.author.username|default:'—' }}</span>
+                                    <span>{% icon 'clock' '' %} {{ article.updated_at|date:"d.m.Y" }}</span>
+                                    <span>{% icon 'eye' '' %} {{ article.views_count }}</span>
+                                </span>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state__icon">{% icon 'file-text' '' %}
+                    </div>
+                    <div class="empty-state__title">В этом разделе пока нет статей</div>
+                    {% if user.is_authenticated %}
+                        <div class="empty-state__text">
+                            <a href="{% url 'knowledge:article_create' %}?section={{ section.id }}">Создать первую</a>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
         </div>
     </section>
-{% endif %}
-
-<section class="card">
-    <div class="card__header">
-        <h2><i class="fas fa-file-alt"></i> Статьи</h2>
-        {% if user.is_authenticated %}
-            <a href="{% url 'knowledge:article_create' %}?section={{ section.id }}" class="btn btn-primary btn-sm">
-                <i class="fas fa-plus"></i> Новая статья
-            </a>
-        {% endif %}
-    </div>
-    <div class="card__body">
-        {% if articles %}
-            <ul class="article-list">
-                {% for article in articles %}
-                    <li class="article-list__item">
-                        <a href="{% url 'knowledge:article_detail' article.slug %}" class="article-list__link">
-                            <span class="article-list__title">
-                                {{ article.title }}
-                                {% if article.is_outdated %}
-                                    <span class="tag tag-warning">Устарела</span>
-                                {% endif %}
-                            </span>
-                            <span class="article-list__meta">
-                                <span>✏️ {{ article.author.username|default:'—' }}</span>
-                                <span>🕐 {{ article.updated_at|date:"d.m.Y" }}</span>
-                                <span>👁 {{ article.views_count }}</span>
-                            </span>
-                        </a>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state__icon">📄</div>
-                <div class="empty-state__title">В этом разделе пока нет статей</div>
-                {% if user.is_authenticated %}
-                    <div class="empty-state__text">
-                        <a href="{% url 'knowledge:article_create' %}?section={{ section.id }}">Создать первую</a>
-                    </div>
-                {% endif %}
-            </div>
-        {% endif %}
-    </div>
-</section>
 {% endblock %}

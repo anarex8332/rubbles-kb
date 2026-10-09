@@ -1,45 +1,48 @@
 {% extends 'base.html' %}
+{% load ui %}
 {% block title %}Релизы — RUBBLES KB{% endblock %}
 
 {% block content %}
-<div class="breadcrumbs">
-    <a href="{% url 'knowledge:home' %}">Главная</a>
-    <span class="breadcrumbs__sep">/</span>
-    <span>Релизы</span>
-</div>
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Релизы</span>
+    </div>
 
-<div class="page-header">
-    <h1 class="page-title"><i class="fas fa-code-branch"></i> Релизы</h1>
-    <p class="page-description">История изменений продуктов RUBBLES Planning Force</p>
-</div>
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'git-branch' '' %} Релизы</h1>
+        <p class="page-description">История изменений продуктов RUBBLES Planning Force</p>
+    </div>
 
-{% if changelogs %}
-    <div class="changelog-timeline">
-        {% for clog in changelogs %}
-            <div class="changelog-entry">
-                <div class="changelog-entry__marker"></div>
-                <div class="changelog-entry__content card">
-                    <div class="card__body">
-                        <div class="changelog-entry__header">
-                            <h2 class="changelog-entry__version">{{ clog.version }}</h2>
-                            <span class="changelog-entry__date">{{ clog.created_at|date:"d.m.Y" }}</span>
+    {% if changelogs %}
+        <div class="changelog-timeline">
+            {% for clog in changelogs %}
+                <div class="changelog-entry">
+                    <div class="changelog-entry__marker">
+                    </div>
+                    <div class="changelog-entry__content card">
+                        <div class="card__body">
+                            <div class="changelog-entry__header">
+                                <h2 class="changelog-entry__version">{{ clog.version }}</h2>
+                                <span class="changelog-entry__date">{{ clog.created_at|date:"d.m.Y" }}</span>
+                            </div>
+                            <h3 class="changelog-entry__title">{{ clog.title }}</h3>
+                            {% if clog.description %}
+                                <div class="changelog-entry__desc">{{ clog.description|linebreaks }}</div>
+                            {% endif %}
+                            {% if clog.author %}
+                                <span class="changelog-entry__author">{% icon 'user' '' %} {{ clog.author.username }}</span>
+                            {% endif %}
                         </div>
-                        <h3 class="changelog-entry__title">{{ clog.title }}</h3>
-                        {% if clog.description %}
-                            <div class="changelog-entry__desc">{{ clog.description|linebreaks }}</div>
-                        {% endif %}
-                        {% if clog.author %}
-                            <span class="changelog-entry__author">👤 {{ clog.author.username }}</span>
-                        {% endif %}
                     </div>
                 </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state__icon">{% icon 'file-text' '' %}
             </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <div class="empty-state">
-        <div class="empty-state__icon">🚀</div>
-        <div class="empty-state__title">Релизов пока нет</div>
-    </div>
-{% endif %}
+            <div class="empty-state__title">Релизов пока нет</div>
+        </div>
+    {% endif %}
 {% endblock %}

@@ -83,17 +83,32 @@ def search(request):
     })
 
 
+def _editor_post_data(request):
+    if request.method != 'POST':
+        return None
+    data = request.POST.copy()
+    if data.get('save_mode') in ('draft', 'published'):
+        data['status'] = data['save_mode']
+    return data
+
+
 @login_required
 def article_create(request):
     """Создание новой статьи"""
-    form = ArticleForm(request.POST or None)
+    form = ArticleForm(_editor_post_data(request), initial={
+        'section': request.GET.get('section', ''), 'status': 'draft', 'allow_comments': True,
+    })
     if request.method == 'POST':
         if form.is_valid():
             article = form.save(commit=False)
             article.author = request.user
             article.save()
+            request.session['editor_save_receipt'] = {
+                'key': f'rubbles-editor:{request.user.pk}:new',
+                'token': request.POST.get('draft_token', ''),
+            }
             messages.success(request, 'Статья успешно создана!')
-            return redirect('knowledge:article_detail', slug=article.slug)
+            return redirect('knowledge:article_detail' if article.status == 'published' else 'knowledge:article_edit', slug=article.slug)
         messages.error(request, 'Заполните заголовок и содержание статьи.')
 
     sections = Section.objects.filter(is_active=True)
@@ -111,7 +126,10 @@ def article_edit(request, slug):
 
     # Форма не привязана к article (instance=article), чтобы в apply_new_version
     # можно было прочитать СТАРЫЕ значения article.title/content до их замены.
-    form = ArticleForm(request.POST or None)
+    form = ArticleForm(_editor_post_data(request), initial={
+        'title': article.title, 'content': article.content, 'section': article.section_id,
+        'status': article.status, 'allow_comments': article.allow_comments,
+    })
     if request.method == 'POST':
         if form.is_valid():
             article.apply_new_version(
@@ -123,8 +141,12 @@ def article_edit(request, slug):
             article.status = form.cleaned_data['status']
             article.allow_comments = form.cleaned_data['allow_comments']
             article.save()
+            request.session['editor_save_receipt'] = {
+                'key': f'rubbles-editor:{request.user.pk}:{article.pk}',
+                'token': request.POST.get('draft_token', ''),
+            }
             messages.success(request, 'Статья обновлена!')
-            return redirect('knowledge:article_detail', slug=article.slug)
+            return redirect('knowledge:article_detail' if article.status == 'published' else 'knowledge:article_edit', slug=article.slug)
         messages.error(request, 'Заполните заголовок и содержание статьи.')
 
     sections = Section.objects.filter(is_active=True)

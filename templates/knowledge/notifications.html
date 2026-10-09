@@ -1,51 +1,53 @@
 {% extends 'base.html' %}
+{% load ui %}
 {% block title %}Уведомления — RUBBLES KB{% endblock %}
 
 {% block content %}
-<div class="breadcrumbs">
-    <a href="{% url 'knowledge:home' %}">Главная</a>
-    <span class="breadcrumbs__sep">/</span>
-    <span>Уведомления</span>
-</div>
-
-<div class="page-header">
-    <h1 class="page-title"><i class="fas fa-bell"></i> Уведомления</h1>
-</div>
-
-<div class="card">
-    <div class="card__body">
-        {% if notifications %}
-            {% for notification in notifications %}
-                <div class="notification-item {% if not notification.is_read %}notification-item--unread{% endif %}">
-                    <div class="notification-item__icon">
-                        {% if notification.notification_type == 'comment_mention' %}
-                            <i class="fas fa-at"></i>
-                        {% elif notification.notification_type == 'article_updated' %}
-                            <i class="fas fa-edit"></i>
-                        {% else %}
-                            <i class="fas fa-comment"></i>
-                        {% endif %}
-                    </div>
-                    <div class="notification-item__content">
-                        <div class="notification-item__message">{{ notification.message }}</div>
-                        <div class="notification-item__time">{{ notification.created_at|date:"d.m.Y H:i" }}</div>
-                    </div>
-                    <div>
-                        {% if not notification.is_read %}
-                            <a href="{% url 'knowledge:notification_read' notification.pk %}" class="btn btn-outline btn-sm">
-                                <i class="fas fa-check"></i>
-                            </a>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty-state">
-                <div class="empty-state__icon">🔔</div>
-                <div class="empty-state__title">Уведомлений нет</div>
-                <div class="empty-state__text">Когда кто-то упомянет вас в комментарии или изменит вашу статью, вы увидите это здесь</div>
-            </div>
-        {% endif %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Уведомления</span>
     </div>
-</div>
+
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'bell' '' %} Уведомления</h1>
+    </div>
+
+    <div class="card">
+        <div class="card__body">
+            {% if notifications %}
+                {% for notification in notifications %}
+                    <div class="notification-item {% if not notification.is_read %}notification-item--unread{% endif %}">
+                        <div class="notification-item__icon">
+                            {% if notification.notification_type == 'comment_mention' %}
+                                {% icon 'at-sign' '' %}
+                            {% elif notification.notification_type == 'article_updated' %}
+                                {% icon 'pencil' '' %}
+                            {% else %}
+                                {% icon 'message-circle' '' %}
+                            {% endif %}
+                        </div>
+                        <div class="notification-item__content">
+                            <div class="notification-item__message">{{ notification.message }}</div>
+                            <div class="notification-item__time">{{ notification.created_at|date:"d.m.Y H:i" }}</div>
+                        </div>
+                        <div>
+                            {% if not notification.is_read %}
+                                <a href="{% url 'knowledge:notification_read' notification.pk %}" class="btn btn-outline btn-sm" aria-label="Отметить уведомление прочитанным">
+                                    {% icon 'check' '' %}
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state__icon">{% icon 'bell' '' %}
+                    </div>
+                    <div class="empty-state__title">Уведомлений нет</div>
+                    <div class="empty-state__text">Здесь появятся новые комментарии к вашим статьям и упоминания</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 {% endblock %}
