@@ -37,7 +37,7 @@
                                 <strong>{{ version.version_number }}</strong>
                             </td>
                             <td>{{ version.title|truncatechars:50 }}</td>
-                            <td>{{ version.author.username|default:'—' }}</td>
+                            <td>{{ version.author.get_full_name|default:version.author.username|default:'—' }}</td>
                             <td title="{{ version.change_summary }}">{{ version.change_summary|default:'—'|truncatechars:120 }}</td>
                             <td>{{ version.created_at|date:"d.m.Y H:i" }}</td>
                             <td>

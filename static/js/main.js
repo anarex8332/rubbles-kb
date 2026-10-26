@@ -118,6 +118,35 @@ function initNavigationTree() {
     }
     branches.forEach((branch) => branch.addEventListener('toggle', save));
     save();
+    keepSidebarScroll(sidebar);
+}
+// Меню не прыгает наверх при переходе: позиция прокрутки переживает перезагрузку страницы
+function keepSidebarScroll(sidebar) {
+    const nav = sidebar.querySelector('.sidebar__nav'),
+        key = 'rubbles-nav-scroll';
+    if (!nav) return;
+    let restored = false;
+    try {
+        const top = Number(sessionStorage.getItem(key));
+        if (top) {
+            nav.scrollTop = top;
+            restored = true;
+        }
+    } catch (e) {}
+    const active = nav.querySelector('.nav-link--active');
+    if (active) {
+        const box = active.getBoundingClientRect(),
+            area = nav.getBoundingClientRect();
+        if (!restored || box.top < area.top || box.bottom > area.bottom)
+            active.scrollIntoView({ block: 'center' });
+    }
+    const remember = () => {
+        try {
+            sessionStorage.setItem(key, String(nav.scrollTop));
+        } catch (e) {}
+    };
+    nav.addEventListener('scroll', remember, { passive: true });
+    window.addEventListener('pagehide', remember);
 }
 function initSidebar() {
     const sidebar = document.getElementById('sidebar'),

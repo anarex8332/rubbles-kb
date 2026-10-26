@@ -98,6 +98,7 @@
                         <div class="nav-divider">
                         </div>
                         <a class="nav-link nav-main-link" href="{% url 'knowledge:collection_list' %}">{% icon 'list' %} Подборки</a>
+                        <a class="nav-link nav-main-link" href="{% url 'knowledge:client_overview' %}">{% icon 'users' %} Клиенты и проекты</a>
                         <a class="nav-link nav-main-link" href="{% url 'knowledge:status_overview' %}">{% icon 'list-checks' %} Контроль состояния</a>
                         <a class="nav-link nav-main-link" href="{% url 'knowledge:version_log' %}">{% icon 'clock' %} История версий</a>
                     </div>
@@ -135,7 +136,7 @@
         <div id="ui-announcement" class="sr-only" role="status" aria-live="polite">
         </div>
         <script src="{% static 'js/search.js' %}?v=20261024-1" defer></script>
-        <script src="{% static 'js/main.js' %}?v=20261024-2">
+        <script src="{% static 'js/main.js' %}?v=20261026-1">
         </script>
         {% if user.is_authenticated %}<div id="notification-toasts" aria-live="polite" data-url="{% url 'knowledge:notification_feed' %}" data-user="{{ user.pk }}"></div><script src="{% static 'js/notifications.js' %}?v=20261024-1" defer></script>{% endif %}
         {% block extra_scripts %}

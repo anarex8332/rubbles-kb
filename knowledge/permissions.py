@@ -12,3 +12,9 @@ def can_resolve_remark(user, remark):
 def can_delete_comment(user, comment):
     """Раздел 3.2: комментарий удаляет его автор (или администратор)."""
     return user.is_authenticated and (user.is_staff or comment.author_id == user.pk)
+
+
+def can_edit_articles(user):
+    """Читатель только читает; редактор и администратор создают и правят статьи"""
+    profile = getattr(user, 'profile', None)
+    return user.is_authenticated and (profile is None or profile.can_edit)

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load ui %}
+{% block title %}Клиенты и проекты — RUBBLES KB{% endblock %}
+
+{% block content %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Клиенты и проекты</span>
+    </div>
+
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'users' '' %} Клиенты и проекты</h1>
+        <p class="page-description">Статьи, собранные по клиенту и проекту. Проект выполняется для клиента, у клиента может быть несколько проектов. Клиента и проект указывают в настройках статьи.</p>
+    </div>
+
+    {% if client_names %}
+        <form method="get" class="status-filters">
+            <label class="sr-only" for="client-filter">Клиент</label>
+            <select id="client-filter" name="client" onchange="this.form.submit()">
+                <option value="">Все клиенты</option>
+                {% for name in client_names %}<option value="{{ name }}" {% if name == client %}selected{% endif %}>{{ name }}</option>{% endfor %}
+            </select>
+            {% if client %}<a class="btn btn-outline" href="{% url 'knowledge:client_overview' %}">Сбросить</a>{% endif %}
+        </form>
+    {% endif %}
+
+    {% for name, projects in clients.items %}
+        <div class="card client-card">
+            <div class="card__body">
+                <h2 class="client-card__title">{{ name }}</h2>
+                {% for project, articles in projects.items %}
+                    <h3 class="client-card__project">Проект: {{ project }} <span class="muted">· {{ articles|length }}</span></h3>
+                    <ul class="article-list">
+                        {% for article in articles %}
+                            <li><a href="{% url 'knowledge:article_detail' article.slug %}">{{ article.title }}</a>
+                                <span class="muted"> · {{ article.get_article_type_display }}</span></li>
+                        {% endfor %}
+                    </ul>
+                {% endfor %}
+            </div>
+        </div>
+    {% empty %}
+        <div class="card"><div class="card__body muted">Пока ни у одной статьи не указан клиент или проект.</div></div>
+    {% endfor %}
+{% endblock %}

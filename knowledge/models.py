@@ -80,6 +80,9 @@ class Article(models.Model):
                              help_text='Где и для кого действует материал: продукт, проект, роль')
     keywords = models.CharField('Ключевые слова', max_length=300, blank=True,
                                 help_text='Через запятую')
+    # Онтология: классы «Клиент» и «Проект» — по ним статьи собираются на странице «Клиенты и проекты»
+    client = models.CharField('Клиент', max_length=200, blank=True)
+    project = models.CharField('Проект', max_length=200, blank=True)
     content = models.TextField('Содержимое (HTML)')
     # Редактор — contenteditable HTML (editor.js), markdown-версию он не формирует;
     # поле оставлено под будущий markdown-источник и сейчас не заполняется.

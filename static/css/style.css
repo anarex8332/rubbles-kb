@@ -3693,3 +3693,17 @@ body.is-col-resizing {
     padding: 6px 8px;
     font-size: 12px;
 }
+
+/* Клиенты и проекты */
+.client-card {
+    margin-bottom: 16px;
+}
+.client-card__title {
+    margin: 0 0 8px;
+    font-size: 20px;
+}
+.client-card__project {
+    margin: 16px 0 6px;
+    font-size: 15px;
+    font-weight: 600;
+}

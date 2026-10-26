@@ -22,10 +22,12 @@
                 <span class="tag tag-success">Проверено {{ article.last_verified_at|date:'d.m.Y' }}</span>{% else %}
                 <span class="tag">Не проверено</span>
             {% endif %}
-            {% if article.scope or article.keywords %}
+            {% if article.scope or article.keywords or article.client or article.project %}
                 <details class="byline-responsible article-info">
                     <summary class="tag">{% icon 'info' %} Сведения</summary>
                     <div class="byline-responsible__panel">
+                        {% if article.client %}<p><span class="muted">Клиент</span><br><a href="{% url 'knowledge:client_overview' %}?client={{ article.client|urlencode }}">{{ article.client }}</a></p>{% endif %}
+                        {% if article.project %}<p><span class="muted">Проект</span><br>{{ article.project }}</p>{% endif %}
                         {% if article.scope %}<p><span class="muted">Область применения</span><br>{{ article.scope }}</p>{% endif %}
                         {% if article.keywords %}<p><span class="muted">Ключевые слова</span><br>{{ article.keywords }}</p>{% endif %}
                     </div>
@@ -36,12 +38,12 @@
     </header>
     <div class="article-bar" id="article-bar">
         <div class="article-byline">
-            <span>Автор: {{ article.author.username|default:'—' }}</span>
+            <span>Автор: {{ article.author.get_full_name|default:article.author.username|default:'—' }}{% if article.author.profile.position %} <span class="muted">· {{ article.author.profile.position }}</span>{% endif %}</span>
             <details class="byline-responsible">
-                <summary>Ответственный: <strong>{% if article.responsible %}{{ article.responsible.get_full_name|default:article.responsible.username }}{% else %}не назначен{% endif %}</strong>{% icon 'chevron-down' %}</summary>
+                <summary>Ответственный: <strong>{% if article.responsible %}{{ article.responsible.get_full_name|default:article.responsible.username }}{% else %}не назначен{% endif %}</strong>{% if article.responsible.profile.position %} <span class="muted">· {{ article.responsible.profile.position }}</span>{% endif %}{% icon 'chevron-down' %}</summary>
                 <div class="byline-responsible__panel">
                     <p class="muted">
-                        {% if article.last_verified_at %}Проверено {{ article.last_verified_at|date:'d.m.Y' }}{% if article.last_verified_by %} — {{ article.last_verified_by.username }}{% endif %}
+                        {% if article.last_verified_at %}Проверено {{ article.last_verified_at|date:'d.m.Y' }}{% if article.last_verified_by %} — {{ article.last_verified_by.get_full_name|default:article.last_verified_by.username }}{% endif %}
                         {% else %}Актуальность содержания ещё не подтверждена.{% endif %}
                     </p>
                     <form method="post" action="{% url 'knowledge:set_responsible' article.slug %}" class="inline-form">{% csrf_token %}
@@ -183,7 +185,7 @@
                         {% for comment in comments %}
                             <article id="comment-{{ comment.pk }}" class="comment {% if comment.author_id == user.pk %}comment--own {% endif %}{% if comment.is_resolved %}comment--resolved{% endif %}">
                                 <div class="comment__header">
-                                    <strong>{{ comment.author.username }}</strong>
+                                    <strong>{{ comment.author.get_full_name|default:comment.author.username }}</strong>
                                     <time>{{ comment.created_at|date:'d.m.Y H:i' }}</time>
                                 </div>
                                 <div class="comment__text">{% if comment.text_html %}{{ comment.text_html|safe }}{% else %}{{ comment.text|linebreaksbr }}{% endif %}</div>

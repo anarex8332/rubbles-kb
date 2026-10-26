@@ -56,7 +56,7 @@
                                     {% endif %}
                                 </span>
                                 <span class="article-list__meta">
-                                    <span>{% icon 'user' '' %} {{ article.author.username|default:'—' }}</span>
+                                    <span>{% icon 'user' '' %} {{ article.author.get_full_name|default:article.author.username|default:'—' }}</span>
                                     <span>{% icon 'clock' '' %} {{ article.updated_at|date:"d.m.Y" }}</span>
                                     <span>{% icon 'eye' '' %} {{ article.views_count }}</span>
                                 </span>

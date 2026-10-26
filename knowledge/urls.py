@@ -43,6 +43,7 @@ urlpatterns = [
     path('status/', views.status_overview, name='status_overview'),
     path('changelog/', views.changelog_list, name='changelog'),
     path('versions/', views.version_log, name='version_log'),
+    path('clients/', views.client_overview, name='client_overview'),
     path('recently-viewed/', views.recently_viewed_list, name='recently_viewed'),
     path('bookmarks/', views.bookmark_list, name='bookmark_list'),
     path('notifications/', views.notification_list, name='notification_list'),

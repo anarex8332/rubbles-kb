@@ -121,6 +121,17 @@
                     <p class="form-help">При создании статьи тип подставляет заготовку структуры.</p>
                 </div>
                 <div class="form-group">
+                    <label for="article-client">Клиент</label>
+                    <input id="article-client" name="client" maxlength="200" list="client-options" value="{{ form.client.value|default:'' }}" placeholder="Например, X5 Group">
+                    <datalist id="client-options">{% for value in client_choices %}<option value="{{ value }}">{% endfor %}</datalist>
+                </div>
+                <div class="form-group">
+                    <label for="article-project">Проект</label>
+                    <input id="article-project" name="project" maxlength="200" list="project-options" value="{{ form.project.value|default:'' }}" placeholder="Например, X5 Group: Replenishment">
+                    <datalist id="project-options">{% for value in project_choices %}<option value="{{ value }}">{% endfor %}</datalist>
+                    <p class="form-help">Проект выполняется для клиента. Если оставить пустым, проект назовётся по клиенту.</p>
+                </div>
+                <div class="form-group">
                     <label for="article-scope">Область применения</label>
                     <input id="article-scope" name="scope" maxlength="300" value="{{ form.scope.value|default:'' }}" placeholder="Продукт, проект, роль">
                 </div>

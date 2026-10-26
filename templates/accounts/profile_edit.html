@@ -43,6 +43,11 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="id_position">Должность (роль)</label>
+                    <input type="text" name="position" id="id_position" maxlength="150" class="form-input" value="{{ profile_form.position.value|default:'' }}" placeholder="Например, бизнес-аналитик">{{ profile_form.position.errors }}
+                </div>
+
+                <div class="form-group">
                     <label for="id_bio">О себе</label>
                     <textarea name="bio" id="id_bio" rows="4" class="form-textarea" placeholder="Расскажите о себе...">{{ profile_form.bio.value|default:'' }}</textarea>{{ profile_form.bio.errors }}
                 </div>

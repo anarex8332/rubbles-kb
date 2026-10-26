@@ -13,7 +13,8 @@ from .audit import log_action
 from .forms import ArticleForm, CollectionForm
 from .models import (Section, Article, ArticleVersion, Comment, Bookmark, RecentlyViewed,
                       Changelog, Notification, RelatedLink, Remark, RemarkReply, Collection, CollectionItem, ArticleImage)
-from .permissions import can_confirm_fresh, can_delete_comment, can_resolve_remark
+from .permissions import can_confirm_fresh, can_delete_comment, can_edit_articles, can_resolve_remark
+from django.core.exceptions import PermissionDenied
 from .article_templates import ARTICLE_TEMPLATES
 from .sanitize import clean_article_html
 from .link_sync import sync_text_links
@@ -114,15 +115,27 @@ def _editor_post_data(request):
     return data
 
 
+def _client_project_choices():
+    """Уже введённые клиенты и проекты — подсказки в форме, чтобы не плодить разные написания."""
+    def values(field):
+        return (Article.objects.exclude(**{field: ''}).values_list(field, flat=True)
+                .distinct().order_by(field))
+    return {'client_choices': values('client'), 'project_choices': values('project')}
+
+
 @login_required
 def article_create(request):
     """Создание новой статьи"""
+    if not can_edit_articles(request.user):
+        raise PermissionDenied('Уровень доступа «Читатель» не позволяет создавать статьи')
     form = ArticleForm(_editor_post_data(request), initial={
         'section': request.GET.get('section', ''), 'status': 'draft', 'allow_comments': True,
     })
     if request.method == 'POST':
         if form.is_valid():
             article = form.save(commit=False)
+            # Проект выполняется для клиента: если не назван, берём имя клиента
+            article.project = form.cleaned_data['project'] or article.client
             article.content = clean_article_html(article.content)
             article.author = request.user
             article.save()
@@ -142,6 +155,7 @@ def article_create(request):
         'sections': sections,
         'is_edit': False,
         'type_templates': ARTICLE_TEMPLATES,
+        **_client_project_choices(),
     })
 
 
@@ -149,6 +163,8 @@ def article_create(request):
 def article_edit(request, slug):
     """Редактирование статьи"""
     article = get_object_or_404(Article, slug=slug)
+    if not can_edit_articles(request.user):
+        raise PermissionDenied('Уровень доступа «Читатель» не позволяет редактировать статьи')
 
     # Форма не привязана к article (instance=article), чтобы в apply_new_version
     # можно было прочитать СТАРЫЕ значения article.title/content до их замены.
@@ -156,6 +172,7 @@ def article_edit(request, slug):
         'title': article.title, 'content': article.content, 'section': article.section_id,
         'status': article.status, 'allow_comments': article.allow_comments,
         'article_type': article.article_type, 'scope': article.scope, 'keywords': article.keywords,
+        'client': article.client, 'project': article.project,
     })
     if request.method == 'POST':
         if form.is_valid():
@@ -170,6 +187,8 @@ def article_edit(request, slug):
             article.article_type = form.cleaned_data['article_type']
             article.scope = form.cleaned_data['scope']
             article.keywords = form.cleaned_data['keywords']
+            article.client = form.cleaned_data['client']
+            article.project = form.cleaned_data['project'] or article.client  # проект выполняется для клиента
             article.save()
             log_action(request.user, 'Изменена статья', article, f'версия {article.version}')
             request.session['editor_save_receipt'] = {
@@ -187,6 +206,7 @@ def article_edit(request, slug):
         'sections': sections,
         'is_edit': True,
         'type_templates': ARTICLE_TEMPLATES,
+        **_client_project_choices(),
     })
 
 
@@ -528,6 +548,22 @@ def version_log(request):
         'author_id': author_id, 'date_from': date_from, 'date_to': date_to, 'query': query,
         'filtered': bool(module or author_id or date_from or date_to or query),
         'params': params.urlencode(),
+    })
+
+
+@login_required
+def client_overview(request):
+    """Клиенты и проекты: статьи, собранные по клиенту и проекту."""
+    articles = (Article.objects.filter(status='published').exclude(client='', project='')
+                .select_related('section').order_by('client', 'project', 'title'))
+    client = request.GET.get('client', '')
+    clients = {}
+    for article in articles:
+        name = article.client or 'Без клиента'
+        clients.setdefault(name, {}).setdefault(article.project or 'Общее', []).append(article)
+    selected = {client: clients[client]} if client in clients else clients
+    return render(request, 'knowledge/client_overview.html', {
+        'clients': selected, 'client_names': list(clients), 'client': client if client in clients else '',
     })
 
 

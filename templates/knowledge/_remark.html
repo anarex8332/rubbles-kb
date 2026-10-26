@@ -6,7 +6,7 @@
         <p class="remark__meta">{% with n=remark.replies.all|length %}{% if n %}{{ n }} {% if n == 1 %}ответ{% elif n < 5 %}ответа{% else %}ответов{% endif %}{% else %}Ответить{% endif %}{% endwith %}{% icon 'chevron-down' %}</p>
     </div>
     <p class="remark__lost" hidden>Фрагмент изменён или удалён из текста.</p>
-    {% if remark.is_resolved %}<p class="remark__resolved">{% icon 'circle-check' %} Решено{% if remark.resolved_by %}: {{ remark.resolved_by.username }}{% endif %}, {{ remark.resolved_at|date:'d.m.Y' }}</p>{% endif %}
+    {% if remark.is_resolved %}<p class="remark__resolved">{% icon 'circle-check' %} Решено{% if remark.resolved_by %}: {{ remark.resolved_by.get_full_name|default:remark.resolved_by.username }}{% endif %}, {{ remark.resolved_at|date:'d.m.Y' }}</p>{% endif %}
     <div class="remark__body">
         {% for reply in remark.replies.all %}
             <div class="remark-reply">

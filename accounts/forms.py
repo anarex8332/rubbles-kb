@@ -7,7 +7,7 @@ class UserProfileForm(forms.ModelForm):
     """Форма редактирования профиля"""
     class Meta:
         model = UserProfile
-        fields = ['avatar', 'bio']
+        fields = ['avatar', 'position', 'bio']
         widgets = {
             'bio': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Расскажите о себе...'}),
         }
