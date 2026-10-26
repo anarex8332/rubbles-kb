@@ -22,15 +22,17 @@
                 <span class="tag tag-success">Проверено {{ article.last_verified_at|date:'d.m.Y' }}</span>{% else %}
                 <span class="tag">Не проверено</span>
             {% endif %}
+            {% if article.scope or article.keywords %}
+                <details class="byline-responsible article-info">
+                    <summary class="tag">{% icon 'info' %} Сведения</summary>
+                    <div class="byline-responsible__panel">
+                        {% if article.scope %}<p><span class="muted">Область применения</span><br>{{ article.scope }}</p>{% endif %}
+                        {% if article.keywords %}<p><span class="muted">Ключевые слова</span><br>{{ article.keywords }}</p>{% endif %}
+                    </div>
+                </details>
+            {% endif %}
         </div>
         <h1 class="article-title">{{ article.title }}</h1>
-        {% if article.scope or article.keywords %}
-            <p class="muted article-meta">
-                {% if article.scope %}Область применения: {{ article.scope }}{% endif %}
-                {% if article.scope and article.keywords %} · {% endif %}
-                {% if article.keywords %}Ключевые слова: {{ article.keywords }}{% endif %}
-            </p>
-        {% endif %}
     </header>
     <div class="article-bar" id="article-bar">
         <div class="article-byline">

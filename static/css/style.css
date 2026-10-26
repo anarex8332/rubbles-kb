@@ -3291,6 +3291,13 @@ body.is-col-resizing {
     box-shadow: 0 8px 28px #0002;
     font-size: 12px;
 }
+.article-info > summary.tag {
+    gap: 6px;
+}
+.article-info .byline-responsible__panel {
+    font-size: 13px;
+    line-height: 1.5;
+}
 .byline-responsible__panel p {
     margin: 0;
 }
