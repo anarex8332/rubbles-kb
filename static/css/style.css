@@ -3395,6 +3395,13 @@ body.is-col-resizing {
     flex: 1;
     min-width: 200px;
 }
+.versions-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary, #666);
+    font-size: 14px;
+}
 .status-pages {
     display: flex;
     align-items: center;

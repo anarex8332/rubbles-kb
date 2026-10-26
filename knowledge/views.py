@@ -8,6 +8,7 @@ from django.http import Http404, HttpResponse, JsonResponse, HttpResponseBadRequ
 from django.contrib import messages
 from django.utils import timezone
 from django.urls import reverse
+from django.contrib.auth.models import User
 from .audit import log_action
 from .forms import ArticleForm, CollectionForm
 from .models import (Section, Article, ArticleVersion, Comment, Bookmark, RecentlyViewed,
@@ -497,11 +498,37 @@ def status_overview(request):
 
 @login_required
 def version_log(request):
-    """Общая история версий: все правки статей базы, новые сверху."""
+    """Общая история версий: все правки статей базы, новые сверху, с поиском и фильтрами."""
     versions = (ArticleVersion.objects.filter(article__status__in=['published', 'draft'])
-                .select_related('article', 'author').order_by('-created_at'))
+                .select_related('article', 'article__section', 'author').order_by('-created_at'))
+    modules = Section.objects.filter(parent__isnull=True, is_active=True).order_by('tree_id')
+    module = modules.filter(slug=request.GET.get('module', '')).first()
+    if module:
+        versions = versions.filter(article__section__in=module.get_descendants(include_self=True))
+    authors = User.objects.filter(pk__in=ArticleVersion.objects.values('author')).order_by('last_name', 'username')
+    author_id = request.GET.get('author', '')
+    if author_id.isdigit():
+        versions = versions.filter(author_id=int(author_id))
+    date_from, date_to = request.GET.get('from', ''), request.GET.get('to', '')
+    if date_from:
+        versions = versions.filter(created_at__date__gte=date_from)
+    if date_to:
+        versions = versions.filter(created_at__date__lte=date_to)
+    query = request.GET.get('q', '').strip()
+    if query:
+        # SQLite не умеет регистронезависимый поиск по кириллице, поэтому ищем в Python
+        needle = query.casefold()
+        versions = [v for v in versions
+                    if needle in v.article.title.casefold() or needle in (v.change_summary or '').casefold()]
     page = Paginator(versions, 30).get_page(request.GET.get('page'))
-    return render(request, 'knowledge/version_log.html', {'page': page})
+    params = request.GET.copy()
+    params.pop('page', None)
+    return render(request, 'knowledge/version_log.html', {
+        'page': page, 'modules': modules, 'module': module, 'authors': authors,
+        'author_id': author_id, 'date_from': date_from, 'date_to': date_to, 'query': query,
+        'filtered': bool(module or author_id or date_from or date_to or query),
+        'params': params.urlencode(),
+    })
 
 
 @login_required

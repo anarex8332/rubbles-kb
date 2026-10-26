@@ -14,6 +14,25 @@
         <p class="page-description">Все правки статей базы знаний, новые сверху. Историю отдельной статьи можно открыть по её названию.</p>
     </div>
 
+    <form method="get" class="status-filters">
+        <label class="sr-only" for="versions-q">Поиск</label>
+        <input id="versions-q" name="q" value="{{ query }}" placeholder="Название статьи или что изменилось">
+        <label class="sr-only" for="versions-module">Модуль</label>
+        <select id="versions-module" name="module" onchange="this.form.submit()">
+            <option value="">Все модули</option>
+            {% for m in modules %}<option value="{{ m.slug }}" {% if module and m.pk == module.pk %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
+        </select>
+        <label class="sr-only" for="versions-author">Автор</label>
+        <select id="versions-author" name="author" onchange="this.form.submit()">
+            <option value="">Все авторы</option>
+            {% for person in authors %}<option value="{{ person.pk }}" {% if person.pk|stringformat:'s' == author_id %}selected{% endif %}>{{ person.get_full_name|default:person.username }}</option>{% endfor %}
+        </select>
+        <label class="versions-date">с <input type="date" name="from" value="{{ date_from }}" onchange="this.form.submit()"></label>
+        <label class="versions-date">по <input type="date" name="to" value="{{ date_to }}" onchange="this.form.submit()"></label>
+        <button class="btn btn-outline" type="submit">Найти</button>
+        {% if filtered %}<a class="btn btn-outline" href="{% url 'knowledge:version_log' %}">Сбросить</a>{% endif %}
+    </form>
+
     <div class="card">
         <div class="table-wrapper">
             <table class="table">
@@ -36,16 +55,16 @@
                             <td title="{{ version.change_summary }}">{{ version.change_summary|default:'—'|truncatechars:120 }}</td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="5" class="muted">Правок пока не было.</td></tr>
+                        <tr><td colspan="5" class="muted">{% if filtered %}Ничего не найдено. Попробуйте изменить фильтры.{% else %}Правок пока не было.{% endif %}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% if page.has_other_pages %}
             <div class="status-pages">
-                {% if page.has_previous %}<a class="btn btn-outline btn-sm" href="?page={{ page.previous_page_number }}">← Назад</a>{% endif %}
+                {% if page.has_previous %}<a class="btn btn-outline btn-sm" href="?{% if params %}{{ params }}&{% endif %}page={{ page.previous_page_number }}">← Назад</a>{% endif %}
                 <span class="muted">Страница {{ page.number }} из {{ page.paginator.num_pages }}</span>
-                {% if page.has_next %}<a class="btn btn-outline btn-sm" href="?page={{ page.next_page_number }}">Дальше →</a>{% endif %}
+                {% if page.has_next %}<a class="btn btn-outline btn-sm" href="?{% if params %}{{ params }}&{% endif %}page={{ page.next_page_number }}">Дальше →</a>{% endif %}
             </div>
         {% endif %}
     </div>
