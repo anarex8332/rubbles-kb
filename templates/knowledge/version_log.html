@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load ui %}
+{% block title %}История версий — RUBBLES KB{% endblock %}
+
+{% block content %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>История версий</span>
+    </div>
+
+    <div class="page-header">
+        <h1 class="page-title">{% icon 'clock' '' %} История версий</h1>
+        <p class="page-description">Все правки статей базы знаний, новые сверху. Историю отдельной статьи можно открыть по её названию.</p>
+    </div>
+
+    <div class="card">
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Статья</th>
+                        <th>Версия</th>
+                        <th>Автор</th>
+                        <th>Изменения</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for version in page %}
+                        <tr>
+                            <td>{{ version.created_at|date:"d.m.Y H:i" }}</td>
+                            <td><a href="{% url 'knowledge:article_version_history' version.article.slug %}">{{ version.article.title|truncatechars:60 }}</a></td>
+                            <td><strong>{{ version.version_number }}</strong></td>
+                            <td>{{ version.author.get_full_name|default:version.author.username|default:'—' }}</td>
+                            <td title="{{ version.change_summary }}">{{ version.change_summary|default:'—'|truncatechars:120 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="muted">Правок пока не было.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page.has_other_pages %}
+            <div class="status-pages">
+                {% if page.has_previous %}<a class="btn btn-outline btn-sm" href="?page={{ page.previous_page_number }}">← Назад</a>{% endif %}
+                <span class="muted">Страница {{ page.number }} из {{ page.paginator.num_pages }}</span>
+                {% if page.has_next %}<a class="btn btn-outline btn-sm" href="?page={{ page.next_page_number }}">Дальше →</a>{% endif %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

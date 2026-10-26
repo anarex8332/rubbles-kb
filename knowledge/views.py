@@ -496,6 +496,15 @@ def status_overview(request):
 
 
 @login_required
+def version_log(request):
+    """Общая история версий: все правки статей базы, новые сверху."""
+    versions = (ArticleVersion.objects.filter(article__status__in=['published', 'draft'])
+                .select_related('article', 'author').order_by('-created_at'))
+    page = Paginator(versions, 30).get_page(request.GET.get('page'))
+    return render(request, 'knowledge/version_log.html', {'page': page})
+
+
+@login_required
 def recently_viewed_list(request):
     """Страница со списком недавних статей"""
     articles = RecentlyViewed.objects.filter(user=request.user)
