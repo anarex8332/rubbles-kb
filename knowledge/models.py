@@ -144,6 +144,11 @@ class Article(models.Model):
         Используется и при редактировании, и при откате к старой версии — раньше
         обе view-функции дублировали один и тот же блок кода.
         """
+        if not change_summary.strip():
+            from .change_summary import describe_changes
+            new_section = self.section if section is SECTION_UNSET else section
+            change_summary = describe_changes(self.title, self.content, title, content,
+                                              self.section, new_section)
         ArticleVersion.objects.create(
             article=self,
             version_number=self.version,

@@ -136,7 +136,7 @@
                 {% if is_edit %}
                     <div class="form-group settings-wide">
                         <label for="change-summary">Описание изменений</label>
-                        <input id="change-summary" name="change_summary" value="{{ request.POST.change_summary|default:'' }}" placeholder="Что изменилось в этой версии?">
+                        <input id="change-summary" name="change_summary" value="{{ request.POST.change_summary|default:'' }}" placeholder="Что изменилось? Если оставить пустым, система опишет сама">
                     </div>
                 {% endif %}
             </div>

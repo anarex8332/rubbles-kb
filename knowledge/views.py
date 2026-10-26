@@ -17,7 +17,7 @@ from .article_templates import ARTICLE_TEMPLATES
 from .sanitize import clean_article_html
 from .link_sync import sync_text_links
 
-COMMENT_REVIEW_DAYS = 14  # регламент 7.3: замечание без решения дольше двух недель попадает в контроль состояния
+COMMENT_REVIEW_DAYS = 3  # регламент 7.3: замечание без решения дольше трёх дней попадает в контроль состояния
 
 
 def home(request):
