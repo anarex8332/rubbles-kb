@@ -29,14 +29,11 @@
                         </div>
                         <div class="notification-item__content">
                             <div class="notification-item__message">{{ notification.message }}</div>
-                            <div class="notification-item__time">{{ notification.created_at|date:"d.m.Y H:i" }}</div>
-                        </div>
-                        <div>
-                            {% if not notification.is_read %}
-                                <a href="{% url 'knowledge:notification_read' notification.pk %}" class="btn btn-outline btn-sm" aria-label="Отметить уведомление прочитанным">
-                                    {% icon 'check' '' %}
-                                </a>
+                            {% if notification.article %}
+                                {# Переход по ссылке открывает статью и отмечает уведомление прочитанным #}
+                                <a class="notification-item__link" href="{% url 'knowledge:notification_read' notification.pk %}">Открыть статью «{{ notification.article.title }}»</a>
                             {% endif %}
+                            <div class="notification-item__time">{{ notification.created_at|date:"d.m.Y H:i" }}</div>
                         </div>
                     </div>
                 {% endfor %}

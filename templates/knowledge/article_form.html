@@ -19,7 +19,7 @@
                 <h1>
                     {% if is_edit %}Редактирование{% else %}Новая статья{% endif %}
                 </h1>
-                <span id="autosave-indicator" class="form-help" role="status">Изменения ещё не сохранены</span>
+                <span id="autosave-indicator" class="form-help" role="status">{% if is_edit %}Изменений пока нет{% else %}Новая статья, пока ничего не изменено{% endif %}</span>
             </div>
             <div class="editor-actions">
                 <a class="btn btn-link" href="{% if article.status == 'published' %}
@@ -43,13 +43,6 @@
         </div>
         {{ form.non_field_errors }}
         <div class="editor-sheet">
-            <label class="sr-only" for="title-input">Заголовок статьи</label>
-            <input type="text" name="title" id="title-input" value="{{ form.title.value|default:'' }}" required maxlength="500" class="editor-title-input" placeholder="Название статьи" aria-describedby="title-errors">
-            <div id="title-errors">
-                {% for error in form.title.errors %}
-                    <p class="field-error">{{ error }}</p>
-                {% endfor %}
-            </div>
             <div class="editor-toolbar" role="toolbar" aria-label="Форматирование текста">
                 <div class="editor-toolbar__group">
                     <button type="button" data-cmd="bold" title="Жирный" aria-label="Жирный">
@@ -66,6 +59,9 @@
                     </button>
                 </div>
                 <div class="editor-toolbar__group">
+                    <select class="font-size-select" data-font-size data-native title="Размер шрифта" aria-label="Размер шрифта"><option value="" selected disabled>Размер</option><option value="">Обычный</option><option value="fs-8">8 пт</option><option value="fs-9">9 пт</option><option value="fs-10">10 пт</option><option value="fs-11">11 пт</option><option value="fs-12">12 пт</option><option value="fs-14">14 пт</option><option value="fs-16">16 пт</option><option value="fs-18">18 пт</option><option value="fs-20">20 пт</option><option value="fs-22">22 пт</option><option value="fs-24">24 пт</option><option value="fs-28">28 пт</option><option value="fs-32">32 пт</option><option value="fs-36">36 пт</option><option value="fs-40">40 пт</option><option value="fs-44">44 пт</option><option value="fs-48">48 пт</option></select>
+                </div>
+                <div class="editor-toolbar__group">
                     <button type="button" data-cmd="formatBlock" data-value="h2" aria-label="Заголовок второго уровня">H2</button>
                     <button type="button" data-cmd="formatBlock" data-value="h3" aria-label="Заголовок третьего уровня">H3</button>
                     <button type="button" data-cmd="formatBlock" data-value="p" aria-label="Обычный текст">Т</button>
@@ -77,6 +73,7 @@
                     </button>
                     <button type="button" data-cmd="formatBlock" data-value="blockquote" aria-label="Цитата">{% icon 'quote' %}
                     </button>
+                    <button type="button" data-cmd="formatBlock" data-value="pre" title="Блок кода или запроса" aria-label="Блок кода или запроса">&lt;/&gt;</button>
                 </div>
                 <div class="editor-toolbar__group">
                     <button type="button" data-cmd="createLink" aria-label="Добавить ссылку">{% icon 'link' %}
@@ -89,6 +86,13 @@
                     </button>
                 </div>
                 <button type="button" id="preview-toggle" aria-pressed="false">Предпросмотр</button>
+            </div>
+            <label class="sr-only" for="title-input">Заголовок статьи</label>
+            <input type="text" name="title" id="title-input" value="{{ form.title.value|default:'' }}" required maxlength="500" class="editor-title-input" placeholder="Название статьи" aria-describedby="title-errors">
+            <div id="title-errors">
+                {% for error in form.title.errors %}
+                    <p class="field-error">{{ error }}</p>
+                {% endfor %}
             </div>
             <div id="editor-content" class="editor-content article-content" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Текст статьи" data-placeholder="Начните с главного…">{{ form.content.value|default:''|safe }}</div>
             {% for error in form.content.errors %}
@@ -108,6 +112,23 @@
                         {% endfor %}
                     </select>{{ form.section.errors }}</div>
                 <div class="form-group">
+                    <label for="article-type">Тип материала</label>
+                    <select id="article-type" name="article_type">
+                        {% for value, label in form.fields.article_type.choices %}
+                            <option value="{{ value }}" {% if form.article_type.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-help">При создании статьи тип подставляет заготовку структуры.</p>
+                </div>
+                <div class="form-group">
+                    <label for="article-scope">Область применения</label>
+                    <input id="article-scope" name="scope" maxlength="300" value="{{ form.scope.value|default:'' }}" placeholder="Продукт, проект, роль">
+                </div>
+                <div class="form-group">
+                    <label for="article-keywords">Ключевые слова</label>
+                    <input id="article-keywords" name="keywords" maxlength="300" value="{{ form.keywords.value|default:'' }}" placeholder="Через запятую">
+                </div>
+                <div class="form-group">
                     <label class="checkbox-label">
                         <input type="checkbox" name="allow_comments" id="settings-comments" {% if form.allow_comments.value %}checked{% endif %}> Разрешить комментарии</label>
                     <p class="form-help">Коллеги смогут обсуждать содержание статьи.</p>
@@ -122,8 +143,42 @@
         </details>
     </form>
     <input type="file" id="image-input" accept="image/*" hidden>
+    {{ type_templates|json_script:"type-templates" }}
 {% endblock %}
 {% block extra_scripts %}
+    <script>
+    (function () {
+        var select = document.getElementById('article-type');
+        var editor = document.getElementById('editor-content');
+        var data = document.getElementById('type-templates');
+        if (!select || !editor || !data) return;
+        var templates = JSON.parse(data.textContent);
+        var isNew = {{ is_edit|yesno:'false,true' }};
+        var lastTemplate = '';
+        function apply(initial) {
+            if (!isNew) return;
+            var current = editor.innerHTML.trim();
+            if (current && current !== lastTemplate.trim() && editor.textContent.trim()) return;
+            lastTemplate = templates[select.value] || '';
+            editor.innerHTML = lastTemplate;
+            // Первая подстановка шаблона при открытии — не правка пользователя
+            if (initial !== true) editor.dispatchEvent(new Event('input', {bubbles: true}));
+        }
+        select.addEventListener('change', function () { apply(false); });
+        if (isNew && !{{ form.is_bound|yesno:'true,false' }}) {
+            window.addEventListener('load', function () { setTimeout(function () { apply(true); }, 0); });
+        }
+    })();
+    </script>
+    <script>
+    (function () {
+        var header = document.querySelector('.editor-header');
+        if (!header) return;
+        function sync() { document.documentElement.style.setProperty('--editor-header-h', header.offsetHeight + 'px'); }
+        sync();
+        window.addEventListener('resize', sync);
+    })();
+    </script>
     <script src="{% static 'js/editor.js' %}">
     </script>
 {% endblock %}

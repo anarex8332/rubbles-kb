@@ -1,0 +1,28 @@
+{% load ui %}<article class="remark{% if remark.is_resolved %} remark--resolved{% endif %}" id="remark-{{ remark.pk }}" data-quote="{{ remark.quote }}" data-prefix="{{ remark.prefix }}" data-suffix="{{ remark.suffix }}" data-position="{{ remark.position }}">
+    <div class="remark__summary" tabindex="0" role="button" aria-expanded="false" aria-label="Развернуть замечание и показать фрагмент в тексте">
+        <div class="remark__head"><strong>{{ remark.author.get_full_name|default:remark.author.username }}</strong><time>{{ remark.created_at|date:'d.m.Y H:i' }}</time></div>
+        <p class="remark__quote">«{{ remark.quote|truncatechars:90 }}»</p>
+        <p class="remark__text">{{ remark.text|linebreaksbr }}</p>
+        <p class="remark__meta">{% with n=remark.replies.all|length %}{% if n %}{{ n }} {% if n == 1 %}ответ{% elif n < 5 %}ответа{% else %}ответов{% endif %}{% else %}Ответить{% endif %}{% endwith %}{% icon 'chevron-down' %}</p>
+    </div>
+    <p class="remark__lost" hidden>Фрагмент изменён или удалён из текста.</p>
+    {% if remark.is_resolved %}<p class="remark__resolved">{% icon 'circle-check' %} Решено{% if remark.resolved_by %}: {{ remark.resolved_by.username }}{% endif %}, {{ remark.resolved_at|date:'d.m.Y' }}</p>{% endif %}
+    <div class="remark__body">
+        {% for reply in remark.replies.all %}
+            <div class="remark-reply">
+                <div class="remark__head"><strong>{{ reply.author.get_full_name|default:reply.author.username }}</strong><time>{{ reply.created_at|date:'d.m.Y H:i' }}</time></div>
+                <p class="remark__text">{{ reply.text|linebreaksbr }}</p>
+            </div>
+        {% endfor %}
+        <form class="remark-reply-form" method="post" action="{% url 'knowledge:add_remark_reply' remark.article.slug remark.pk %}">{% csrf_token %}
+            <label class="sr-only" for="reply-{{ remark.pk }}">Ответ на замечание</label>
+            <textarea id="reply-{{ remark.pk }}" name="text" rows="2" required placeholder="Ваш ответ…"></textarea>
+            <button class="btn btn-outline btn-sm" type="submit">Ответить</button>
+        </form>
+        {% if remark.can_resolve %}
+            <form method="post" action="{% url 'knowledge:toggle_remark_resolved' remark.article.slug remark.pk %}">{% csrf_token %}
+                <button class="btn btn-link btn-sm" type="submit">{% if remark.is_resolved %}Вернуть в работу{% else %}Решено{% endif %}</button>
+            </form>
+        {% endif %}
+    </div>
+</article>

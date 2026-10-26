@@ -313,6 +313,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 remember();
             };
         });
+        form.querySelectorAll('[data-font-size]').forEach((select) => {
+            let saved = null;
+            select.onmousedown = () => {
+                const s = window.getSelection();
+                if (s.rangeCount && editor.contains(s.anchorNode)) saved = s.getRangeAt(0).cloneRange();
+            };
+            select.onchange = () => {
+                editor.focus();
+                if (saved) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(saved); }
+                window.applyFontSize(editor, select.value);
+                select.selectedIndex = 0;
+                remember();
+            };
+        });
         form.querySelectorAll('[data-attach]').forEach(
             (button) =>
                 (button.onclick = () => {

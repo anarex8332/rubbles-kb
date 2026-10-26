@@ -28,7 +28,7 @@
                             </div>
                             <h3 class="changelog-entry__title">{{ clog.title }}</h3>
                             {% if clog.description %}
-                                <div class="changelog-entry__desc">{{ clog.description|linebreaks }}</div>
+                                <div class="changelog-entry__desc">{{ clog.description|release_html }}</div>
                             {% endif %}
                             {% if clog.author %}
                                 <span class="changelog-entry__author">{% icon 'user' '' %} {{ clog.author.username }}</span>

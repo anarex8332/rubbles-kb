@@ -29,6 +29,9 @@ def sections_processor(request):
         section = visible_sections[article.section_id]
         section.nav_articles.append(article)
         article_sections[article.slug] = section.slug
+    # Число статей раздела вместе с подразделами: обход от потомков к родителям.
+    for section in reversed(list(visible_sections.values())):
+        section.nav_total = len(section.nav_articles) + sum(c.nav_total for c in section.nav_children)
     
     # Определяем slug текущего раздела из URL
     path = request.path

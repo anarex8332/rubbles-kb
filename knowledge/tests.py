@@ -169,11 +169,11 @@ class EditorWorkflowTests(TestCase):
 
     def test_auth_screens_do_not_render_workspace_navigation(self):
         self.client.logout()
-        for url in ('/accounts/login/', '/accounts/register/'):
-            response = self.client.get(url)
-            self.assertEqual(response.status_code, 200)
-            self.assertNotContains(response, 'id="sidebar"')
-            self.assertContains(response, 'auth-main')
+        response = self.client.get('/accounts/login/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id="sidebar"')
+        self.assertContains(response, 'auth-main')
+        self.assertNotContains(response, '/accounts/register/')
 
 
 class CommentAndSearchTests(TestCase):
@@ -288,3 +288,148 @@ class MentionsAndKeywordTests(TestCase):
         self.assertEqual(Notification.objects.filter(user=self.recipient, notification_type='comment_mention').count(), 1)
         data = self.client.get('/users/suggestions/', {'q':'мар'}).json()
         self.assertEqual(data['results'][0]['username'], 'mention.recipient')
+
+
+class RegulationTests(TestCase):
+    def setUp(self):
+        self.author = User.objects.create_user('reg_author', password='Local-reg-926!')
+        self.responsible = User.objects.create_user('reg_resp', password='Local-reg-926!')
+        self.other = User.objects.create_user('reg_other', password='Local-reg-926!')
+        self.article = Article.objects.create(title='Регламент', content='<p>Текст</p>', status='published',
+                                              author=self.author, responsible=self.responsible)
+
+    def test_archived_article_opens_by_link_but_not_in_search(self):
+        self.client.force_login(self.other)
+        self.client.post(f'/article/{self.article.slug}/archive/')
+        self.assertEqual(self.client.get(f'/article/{self.article.slug}/').status_code, 200)
+        self.assertNotIn(self.article, self.client.get('/search/', {'q': 'Регламент'}).context['articles'])
+
+    def test_only_responsible_confirms_freshness(self):
+        self.client.force_login(self.other)
+        self.client.post(f'/article/{self.article.slug}/confirm-fresh/')
+        self.article.refresh_from_db()
+        self.assertIsNone(self.article.last_verified_at)
+        self.client.force_login(self.responsible)
+        self.client.post(f'/article/{self.article.slug}/confirm-fresh/')
+        self.article.refresh_from_db()
+        self.assertIsNotNone(self.article.last_verified_at)
+
+    def test_comment_deleted_softly_and_only_by_author(self):
+        from .models import Comment
+        comment = Comment.objects.create(article=self.article, author=self.author, text='Замечание')
+        self.client.force_login(self.other)
+        self.client.post(f'/article/{self.article.slug}/comment/{comment.pk}/delete/')
+        comment.refresh_from_db()
+        self.assertTrue(comment.is_active)
+        self.client.force_login(self.author)
+        self.client.post(f'/article/{self.article.slug}/comment/{comment.pk}/delete/')
+        comment.refresh_from_db()
+        self.assertFalse(comment.is_active)
+        self.assertIsNotNone(comment.deleted_at)
+
+    def test_registration_is_closed_for_ordinary_users(self):
+        self.assertEqual(self.client.get('/accounts/register/').status_code, 302)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get('/accounts/register/').status_code, 404)
+        self.client.force_login(User.objects.create_user('reg_admin', password='x', is_staff=True))
+        self.assertEqual(self.client.get('/accounts/register/').status_code, 200)
+
+    def test_expired_article_is_marked_outdated(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        Article.objects.filter(pk=self.article.pk).update(created_at=timezone.now() - timedelta(days=91))
+        Article.mark_expired()
+        self.article.refresh_from_db()
+        self.assertTrue(self.article.is_outdated)
+
+    def test_collection_keeps_order_and_links_articles(self):
+        from .models import Collection
+        second = Article.objects.create(title='Второй', content='<p>x</p>', status='published', author=self.author)
+        self.client.force_login(self.author)
+        self.client.post('/collections/new/', {'title': 'Для новичка', 'description': 'Порядок изучения'})
+        collection = Collection.objects.get()
+        for article in (self.article, second):
+            self.client.post(f'/collections/{collection.pk}/add/', {'article': article.pk})
+        item = collection.items.get(article=second)
+        self.client.post(f'/collections/{collection.pk}/items/{item.pk}/move/', {'direction': 'up'})
+        self.assertEqual([i.article for i in collection.items.all()], [second, self.article])
+        self.assertEqual(self.client.get(f'/collections/{collection.pk}/').status_code, 200)
+
+    def test_docx_export_and_action_log(self):
+        from .models import ActionLog
+        self.client.force_login(self.author)
+        response = self.client.get(f'/article/{self.article.slug}/export/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b'PK'))
+        self.assertTrue(ActionLog.objects.filter(action='Экспорт статьи в docx').exists())
+
+    def test_article_html_is_sanitized_on_save(self):
+        self.client.force_login(self.author)
+        self.client.post('/article/new/', {'title': 'XSS', 'content': '<p onclick="x()">a</p><script>alert(1)</script>',
+                                           'save_mode': 'published'})
+        content = Article.objects.get(title='XSS').content
+        self.assertNotIn('script', content)
+        self.assertNotIn('onclick', content)
+
+    def test_section_depth_limited_to_two_levels(self):
+        from django.core.exceptions import ValidationError
+        root = Section.objects.create(name='Корень')
+        child = Section.objects.create(name='Дочерний', parent=root)
+        with self.assertRaises(ValidationError):
+            Section(name='Третий', parent=child).full_clean()
+
+    def test_docx_export_handles_lists_and_blocks_inside_table_cells(self):
+        from .docx_export import article_to_docx
+        self.article.content = ('<table><tr><td><ul><li>Один</li><li>Два</li></ul></td>'
+                                '<td><p>Абзац</p><h3>Заголовок</h3><pre>x = 1</pre></td></tr></table>')
+        self.assertTrue(article_to_docx(self.article).startswith(b'PK'))
+
+    def test_links_from_text_appear_in_related_sources(self):
+        from .link_sync import classify
+        self.assertEqual(classify('https://yt.sbdagroup.com/issue/RPF-1'), 'youtrack')
+        self.assertEqual(classify('https://gl.sbdagroup.com/rpf/-/merge_requests/5'), 'git')
+        self.assertEqual(classify('https://docs.google.com/document/d/1', 'БТ по промо'), 'bt')
+        self.assertEqual(classify('https://docs.google.com/document/d/1', 'ТЗ на выгрузку'), 'tz')
+        self.assertEqual(classify('https://docs.google.com/document/d/1'), 'bt')
+        self.assertEqual(classify('https://clickhouse.com/docs/sql'), 'docs')
+        self.assertEqual(classify('https://rubbles.ru'), 'other')
+        self.client.force_login(self.author)
+        self.client.post(f'/article/{self.article.slug}/edit/', {
+            'title': self.article.title, 'save_mode': 'published',
+            'content': '<p><a href="https://yt.sbdagroup.com/issue/RPF-1">Задача</a> <a href="#x">якорь</a> <a href="http://dd.mm">DD.MM</a></p>'})
+        links = list(self.article.related_links.values_list('url', 'link_type', 'label', 'from_text'))
+        self.assertEqual(links, [('https://yt.sbdagroup.com/issue/RPF-1', 'youtrack', 'Задача', True)])
+        self.client.post(f'/article/{self.article.slug}/edit/', {
+            'title': self.article.title, 'save_mode': 'published', 'content': '<p>Без ссылок</p>'})
+        self.assertFalse(self.article.related_links.exists())
+
+    def test_pdf_export_and_numbered_lists_in_docx(self):
+        import io
+        import docx
+        from .docx_export import article_to_docx
+        self.article.content = ('<ol><li><p>Первый</p></li><li><p>Второй</p></li></ol>'
+                                '<ul><li><p>Маркер</p></li></ul><ol><li><p>Снова первый</p></li></ol>')
+        self.article.save()
+        paragraphs = docx.Document(io.BytesIO(article_to_docx(self.article))).paragraphs
+        items = [p for p in paragraphs if p.style.name.startswith('List')]
+        self.assertEqual([p.text for p in items], ['Первый', 'Второй', 'Маркер', 'Снова первый'])
+        first, last = items[0]._p.pPr.numPr.numId.val, items[3]._p.pPr.numPr.numId.val
+        self.assertNotEqual(first, last)
+        self.client.force_login(self.author)
+        response = self.client.get(f'/article/{self.article.slug}/export/', {'format': 'pdf'})
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF'))
+
+
+class SeedCollectionsTests(TestCase):
+    def test_command_adds_articles_and_is_idempotent(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from .models import Collection
+        User.objects.create_superuser('boss', 'b@example.com', 'x')
+        call_command('seed_collections', stdout=StringIO())
+        call_command('seed_collections', stdout=StringIO())
+        self.assertEqual(Article.objects.filter(title='Регламент жизненного цикла знаний').count(), 1)
+        onboarding = Collection.objects.get(title='Онбординг нового аналитика')
+        self.assertEqual(onboarding.role, 'аналитик')
+        self.assertEqual(onboarding.items.first().article.title, 'Онбординг нового аналитика: порядок и чек-лист')

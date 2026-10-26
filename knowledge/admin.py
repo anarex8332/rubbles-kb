@@ -1,6 +1,6 @@
 from django.contrib import admin
 from mptt.admin import MPTTModelAdmin
-from .models import Section, Article, ArticleVersion, Comment, Bookmark, RecentlyViewed, Changelog, Notification
+from .models import Section, Article, ArticleVersion, Comment, Bookmark, RecentlyViewed, Changelog, Notification, Collection, CollectionItem, ActionLog, ArticleImage
 
 
 @admin.register(Section)
@@ -22,8 +22,8 @@ class ArticleVersionInline(admin.TabularInline):
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     list_display = ['title', 'section', 'author', 'status', 'version', 'is_outdated', 'views_count', 'updated_at']
-    list_filter = ['status', 'section', 'is_outdated']
-    search_fields = ['title', 'content']
+    list_filter = ['status', 'article_type', 'section', 'is_outdated']
+    search_fields = ['title', 'content', 'keywords', 'scope']
     prepopulated_fields = {'slug': ('title',)}
     inlines = [ArticleVersionInline]
     readonly_fields = ['version', 'views_count', 'created_at', 'updated_at']
@@ -50,3 +50,31 @@ class NotificationAdmin(admin.ModelAdmin):
 
 admin.site.register(Bookmark)
 admin.site.register(RecentlyViewed)
+
+
+class CollectionItemInline(admin.TabularInline):
+    model = CollectionItem
+    extra = 0
+
+
+@admin.register(Collection)
+class CollectionAdmin(admin.ModelAdmin):
+    list_display = ['title', 'owner', 'updated_at']
+    inlines = [CollectionItemInline]
+
+
+@admin.register(ActionLog)
+class ActionLogAdmin(admin.ModelAdmin):
+    list_display = ['created_at', 'user', 'action', 'article', 'details']
+    list_filter = ['action']
+    search_fields = ['user__username', 'details']
+    readonly_fields = ['user', 'action', 'article', 'details', 'created_at']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+admin.site.register(ArticleImage)

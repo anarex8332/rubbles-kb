@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load ui %}
+{% block title %}Восстановление версии — RUBBLES{% endblock %}
+{% block content %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <a href="{% url 'knowledge:article_detail' article.slug %}">{{ article.title|truncatechars:50 }}</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Восстановление версии</span>
+    </div>
+    <div class="page-header">
+        <h1 class="page-title">Восстановить версию {{ version.version_number }}?</h1>
+        <p class="page-description">Текущий текст сохранится в истории, статья получит новую версию.</p>
+    </div>
+    <div class="card"><div class="card__body">
+        <article class="article-content">{{ version.content|safe }}</article>
+        <form method="post" class="form-actions">{% csrf_token %}
+            <button type="submit" class="btn btn-primary">Восстановить</button>
+            <a class="btn btn-outline" href="{% url 'knowledge:article_version_history' article.slug %}">Отмена</a>
+        </form>
+    </div></div>
+{% endblock %}

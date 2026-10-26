@@ -3,9 +3,7 @@
 {% block body_class %}auth-layout{% endblock %}
 {% block app_shell %}
     <header class="auth-header">
-        <a class="wordmark" href="{% url 'knowledge:home' %}">RUBBLES<span class="brand-square" aria-hidden="true">
-        </span>
-        </a>
+        <a class="wordmark" href="{% url 'knowledge:home' %}" aria-label="Rubbles — на главную">{% include "_logo.html" %}</a>
         {% include "_theme_toggle.html" %}
     </header>
     <main id="main" class="auth-main">

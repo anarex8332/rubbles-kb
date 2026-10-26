@@ -1,7 +1,7 @@
 {% load ui %}
 <details class="nav-branch" data-nav-key="section-{{ section.pk }}">
     <summary class="nav-branch__summary">
-        {% icon 'folder' '' %}
+        {% icon section|section_icon '' %}
         <span>{{ section.name }}</span>
     </summary>
     <div class="nav-branch__children">

@@ -2,6 +2,9 @@ import re
 
 SECTION_UNSET = object()
 
+from datetime import timedelta
+
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save, pre_save
@@ -32,6 +35,15 @@ class Section(MPTTModel):
         verbose_name_plural = 'Разделы'
         ordering = ['order', 'name']
 
+    MAX_DEPTH = 2  # раздел и один уровень подразделов (раздел 3.2 ВКР)
+
+    def clean(self):
+        super().clean()
+        if self.parent_id and self.parent.get_level() + 1 >= self.MAX_DEPTH:
+            raise ValidationError({'parent': 'Глубина дерева разделов ограничена двумя уровнями.'})
+        if self.pk and self.parent_id and self.get_descendants().exists():
+            raise ValidationError({'parent': 'У раздела есть подразделы, его нельзя сделать подразделом.'})
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
@@ -49,8 +61,25 @@ class Article(models.Model):
         ('archived', 'В архиве'),
     ]
 
+    TYPE_CHOICES = [
+        ('context', 'Контекст проекта и клиента'),
+        ('product', 'Описание продукта или компонента'),
+        ('rule', 'Бизнес-правило'),
+        ('decision', 'Обоснование решения'),
+        ('instruction', 'Рабочая инструкция'),
+        ('task_doc', 'Документация по реализованной задаче'),
+        ('problem', 'Разбор проблемы'),
+        ('term', 'Термин или определение'),
+    ]
+    REVIEW_DAYS = 90  # срок подтверждения актуальности, регламент 5.4
+
     title = models.CharField('Заголовок', max_length=500)
     slug = models.SlugField('Slug', max_length=500, unique=True, blank=True)
+    article_type = models.CharField('Тип материала', max_length=20, choices=TYPE_CHOICES, default='instruction')
+    scope = models.CharField('Область применения', max_length=300, blank=True,
+                             help_text='Где и для кого действует материал: продукт, проект, роль')
+    keywords = models.CharField('Ключевые слова', max_length=300, blank=True,
+                                help_text='Через запятую')
     content = models.TextField('Содержимое (HTML)')
     # Редактор — contenteditable HTML (editor.js), markdown-версию он не формирует;
     # поле оставлено под будущий markdown-источник и сейчас не заполняется.
@@ -99,6 +128,15 @@ class Article(models.Model):
             self.slug = slug
         super().save(*args, **kwargs)
 
+    @classmethod
+    def mark_expired(cls, now=None):
+        """Регламент 5.4: не подтверждённая за квартал статья становится устаревшей."""
+        border = (now or timezone.now()) - timedelta(days=cls.REVIEW_DAYS)
+        expired = cls.objects.filter(status='published', is_outdated=False).filter(
+            models.Q(last_verified_at__lt=border) |
+            models.Q(last_verified_at__isnull=True, created_at__lt=border))
+        return expired.update(is_outdated=True)
+
     def apply_new_version(self, *, title, content, section=SECTION_UNSET, content_markdown='',
                            snapshot_author=None, change_summary='', mark_fresh=False):
         """Сохраняет текущее состояние статьи как версию истории и применяет новые данные.
@@ -124,6 +162,8 @@ class Article(models.Model):
         if mark_fresh:
             self.is_outdated = False
         self.save()
+        from .link_sync import sync_text_links
+        sync_text_links(self)
 
     def __str__(self):
         return self.title
@@ -145,6 +185,7 @@ class RelatedLink(models.Model):
     url = models.URLField('Ссылка', max_length=1000)
     label = models.CharField('Назначение связи', max_length=300, blank=True,
                              help_text='Например: БТ по доработке X, задача на реализацию Y')
+    from_text = models.BooleanField('Взята из текста статьи', default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -188,6 +229,9 @@ class Comment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField('Активен', default=True)
     # ФТ-08: обсуждение можно отметить разрешённым, не удаляя его историю
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='deleted_comments')
     is_resolved = models.BooleanField('Разрешено', default=False)
     resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                     related_name='resolved_comments')
@@ -200,6 +244,47 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"{self.author.username} - {self.article.title[:50]}"
+
+
+class Remark(models.Model):
+    """Замечание к фрагменту текста статьи (регламент 7): выделенный текст, его автор, дата и решение."""
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='remarks')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='remarks')
+    quote = models.TextField('Выделенный фрагмент')
+    # Соседний текст и позиция помогают найти фрагмент, если такая же фраза встречается в статье несколько раз
+    prefix = models.CharField(max_length=80, blank=True)
+    suffix = models.CharField(max_length=80, blank=True)
+    position = models.PositiveIntegerField(default=0)
+    text = models.TextField('Текст замечания')
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_resolved = models.BooleanField('Разрешено', default=False)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='resolved_remarks')
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Замечание к тексту'
+        verbose_name_plural = 'Замечания к тексту'
+        ordering = ['position', 'created_at']
+
+    def __str__(self):
+        return f"{self.author.username}: {self.quote[:40]}"
+
+
+class RemarkReply(models.Model):
+    """Ответ на замечание к тексту: обсуждение фрагмента между автором замечания и другими сотрудниками."""
+    remark = models.ForeignKey(Remark, on_delete=models.CASCADE, related_name='replies')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='remark_replies')
+    text = models.TextField('Текст ответа')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Ответ на замечание'
+        verbose_name_plural = 'Ответы на замечания'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.author.username}: {self.text[:40]}"
 
 
 class Bookmark(models.Model):
@@ -313,3 +398,64 @@ class CommentAttachment(models.Model):
     file = models.FileField(upload_to='comments/%Y/%m/')
     name = models.CharField(max_length=255)
     is_image = models.BooleanField(default=False)
+
+
+class Collection(models.Model):
+    """Подборка материалов для передачи знаний (ФТ-09): ссылки на статьи в порядке изучения"""
+    title = models.CharField('Название', max_length=300)
+    description = models.TextField('Для кого и зачем', blank=True)
+    # Раздел 2.8 ВКР: новый сотрудник открывает подборку, связанную с проектом и своей ролью.
+    role = models.CharField('Роль', max_length=120, blank=True, help_text='Например: аналитик, разработчик')
+    project = models.CharField('Проект или продукт', max_length=200, blank=True)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='collections')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Подборка'
+        verbose_name_plural = 'Подборки'
+        ordering = ['title']
+
+    def __str__(self):
+        return self.title
+
+
+class CollectionItem(models.Model):
+    """Строка подборки: ссылка на статью, а не её копия"""
+    collection = models.ForeignKey(Collection, on_delete=models.CASCADE, related_name='items')
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name='collection_items')
+    position = models.PositiveIntegerField('Порядок изучения', default=1)
+    note = models.CharField('Пояснение', max_length=300, blank=True)
+
+    class Meta:
+        verbose_name = 'Материал подборки'
+        verbose_name_plural = 'Материалы подборки'
+        ordering = ['position', 'pk']
+        unique_together = ['collection', 'article']
+
+    def __str__(self):
+        return f'{self.collection}: {self.position}. {self.article}'
+
+
+class ArticleImage(models.Model):
+    """Изображение статьи в файловой области; в тексте остаётся только ссылка на него"""
+    file = models.ImageField(upload_to='articles/%Y/%m/')
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ActionLog(models.Model):
+    """Журнал основных действий пользователей (НФТ-08)"""
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='actions')
+    action = models.CharField('Действие', max_length=60)
+    article = models.ForeignKey(Article, on_delete=models.SET_NULL, null=True, blank=True, related_name='actions')
+    details = models.CharField('Подробности', max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Запись журнала'
+        verbose_name_plural = 'Журнал действий'
+        ordering = ['-created_at', '-pk']
+
+    def __str__(self):
+        return f'{self.created_at:%d.%m.%Y %H:%M} {self.user} {self.action}'

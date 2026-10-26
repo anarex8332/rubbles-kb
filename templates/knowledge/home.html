@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% load ui %}
+{% block body_class %}is-home{% endblock %}
+{% block header_label %}{% endblock %}
+{% block header_search %}{% endblock %}
 {% block content %}
     <section class="home-heading">
         <div>
@@ -23,12 +26,12 @@
         <div class="section-directory">
             {% for section in nav_sections %}
                 <a class="directory-item" href="{% url 'knowledge:section_detail' section.slug %}">
-                    <div class="directory-item__top">{% icon 'folder' %}
+                    <div class="directory-item__top">{% icon section|section_icon %}
                         {% icon 'arrow-up-right' %}
                     </div>
                     <h3>{{ section.name }}</h3>
                     <p>{{ section.description|default:'Материалы и инструкции раздела'|truncatechars:90 }}</p>
-                    <span class="muted">Статей: {{ section.nav_articles|length }}</span>
+                    <span class="muted">Статей: {{ section.nav_total }}</span>
                 </a>
             {% empty %}
                 <div class="empty-state">Разделов пока нет. Их можно добавить в панели управления.</div>

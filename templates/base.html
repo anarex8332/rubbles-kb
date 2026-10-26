@@ -10,7 +10,7 @@
         <script src="{% static 'js/theme.js' %}">
         </script>
         <link rel="preload" href="{% static 'fonts/Manrope.ttf' %}" as="font" type="font/ttf" crossorigin>
-        <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20261009-4">
+        <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20261024-1">
         {% block extra_head %}
         {% endblock %}
     </head>
@@ -21,15 +21,17 @@
             <div class="layout">
                 <header class="header">
                     <div class="header__left">
-                        <button class="btn-icon sidebar-toggle" type="button" aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false">{% icon 'menu' %}
+                        <button class="btn-icon sidebar-toggle header-menu" type="button" aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false">{% icon 'menu' %}
                         </button>
-                        <span class="workspace-label">Рабочее пространство</span>
+                        {% block header_label %}<span class="workspace-label">Рабочее пространство</span>{% endblock %}
                     </div>
+                    {# На главной свой большой поиск, поэтому верхний там не выводится #}
+                    {% block header_search %}
                     <form action="{% url 'knowledge:search' %}" class="header-search" role="search">
                         {% icon 'search' %}
                         <input id="global-search" name="q" value="{{ query|default:'' }}" placeholder="Найти в базе знаний" aria-label="Поиск по базе знаний">
-                        <kbd>Ctrl K</kbd>
                     </form>
+                    {% endblock %}
                     <div class="header__right">
 
                         <a href="{% url 'knowledge:notification_list' %}" class="btn-icon notification-bell" aria-label="Уведомления{% if unread_count %}: {{ unread_count }} непрочитанных{% endif %}">{% icon 'bell' %}
@@ -44,9 +46,10 @@
                 </button>
                 <aside class="sidebar" id="sidebar" data-nav-user="{{ user.pk|default:'anonymous' }}" aria-label="Навигация">
                     <div class="sidebar-brand">
-                        <a href="{% url 'knowledge:home' %}" class="wordmark">RUBBLES
-                        </a>
+                        <a href="{% url 'knowledge:home' %}" class="wordmark" aria-label="Rubbles — на главную">{% include "_logo.html" %}</a>
                         <span class="sidebar-brand__caption">Знания команды</span>
+                        <button class="btn-icon sidebar-collapse" type="button" aria-label="Свернуть панель" aria-controls="sidebar" aria-expanded="true">{% icon 'menu' %}
+                        </button>
                         <button class="btn-icon sidebar-close" type="button" aria-label="Закрыть меню">{% icon 'x' %}
                         </button>
                     </div>
@@ -94,22 +97,28 @@
                         </details>
                         <div class="nav-divider">
                         </div>
+                        <a class="nav-link nav-main-link" href="{% url 'knowledge:collection_list' %}">{% icon 'list' %} Подборки</a>
                         <a class="nav-link nav-main-link" href="{% url 'knowledge:status_overview' %}">{% icon 'list-checks' %} Контроль состояния</a>
                         <a class="nav-link nav-main-link" href="{% url 'knowledge:changelog' %}">{% icon 'git-branch' %} Релизы</a>
                     </div>
-                    <div class="sidebar-theme">{% include "_theme_toggle.html" %}</div>
+                    {# Свёрнутая панель: иконки разделов вместо полного дерева #}
+                    <nav class="sidebar-rail" aria-label="Разделы">
+                        {% for section in nav_sections %}
+                            <a class="btn-icon{% if section.slug == current_section_slug %} is-active{% endif %}" href="{% url 'knowledge:section_detail' section.slug %}" aria-label="{{ section.name }}" data-tooltip="{{ section.name }}">{% icon section|section_icon %}</a>
+                        {% endfor %}
+                    </nav>
                     <div class="sidebar-footer">
-                        <a class="profile-link" href="{% url 'profile' %}">
-                            <span class="user-avatar">
-                                {% if user.profile.avatar %}
-                                    <img src="{{ user.profile.avatar.url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}
+                        <a class="profile-link" href="{% url 'profile' %}" title="{{ user.get_full_name|default:user.username }}">
+                            <span class="user-avatar">{{ user.username|first|upper }}
+                                {% if user.profile.avatar %}<img src="{{ user.profile.avatar.url }}" alt="" onerror="this.remove()">{% endif %}
                             </span>
                             <span>
                                 <strong>{{ user.get_full_name|default:user.username }}</strong>
                                 <small>Мой профиль</small>
                             </span>
                         </a>
-                        <a class="btn-icon" href="{% url 'logout' %}" aria-label="Выйти">{% icon 'log-out' %}
+                        {% include "_theme_toggle.html" %}
+                        <a class="btn-icon" href="{% url 'logout' %}" aria-label="Выйти" title="Выйти">{% icon 'log-out' %}
                         </a>
                     </div>
                 </aside>
@@ -125,10 +134,10 @@
         {% if editor_save_receipt %}{{ editor_save_receipt|json_script:'editor-save-receipt' }}{% endif %}
         <div id="ui-announcement" class="sr-only" role="status" aria-live="polite">
         </div>
-        <script src="{% static 'js/search.js' %}?v=20261009-4" defer></script>
-        <script src="{% static 'js/main.js' %}?v=20261009-4">
+        <script src="{% static 'js/search.js' %}?v=20261024-1" defer></script>
+        <script src="{% static 'js/main.js' %}?v=20261024-2">
         </script>
-        {% if user.is_authenticated %}<div id="notification-toasts" aria-live="polite" data-url="{% url 'knowledge:notification_feed' %}" data-user="{{ user.pk }}"></div><script src="{% static 'js/notifications.js' %}?v=20261009-4" defer></script>{% endif %}
+        {% if user.is_authenticated %}<div id="notification-toasts" aria-live="polite" data-url="{% url 'knowledge:notification_feed' %}" data-user="{{ user.pk }}"></div><script src="{% static 'js/notifications.js' %}?v=20261024-1" defer></script>{% endif %}
         {% block extra_scripts %}
         {% endblock %}
     </body>

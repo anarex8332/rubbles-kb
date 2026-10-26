@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load ui %}
+{% block title %}Подборки — RUBBLES{% endblock %}
+{% block content %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Подборки</span>
+    </div>
+    <div class="page-header">
+        <h1 class="page-title">Подборки материалов</h1>
+        <p class="page-description">Список статей в порядке изучения, например для нового сотрудника на проекте.</p>
+        <a class="btn btn-primary" href="{% url 'knowledge:collection_create' %}">{% icon 'plus' %} Создать подборку</a>
+    </div>
+    <div class="card"><div class="card__body">
+        {% if collections %}
+            <ul class="article-list">
+                {% for c in collections %}
+                    <li class="article-list__item">
+                        <a href="{% url 'knowledge:collection_detail' c.pk %}" class="article-list__link">
+                            <span class="article-list__title">{{ c.title }}</span>
+                            {% if c.description %}<span class="collection-description">{{ c.description }}</span>{% endif %}
+                            <span class="article-list__meta">
+                                {% if c.role %}<span class="tag">Роль: {{ c.role }}</span>{% endif %}
+                                {% if c.project %}<span class="tag">{{ c.project }}</span>{% endif %}
+                                <span>Статей: {{ c.item_count }}</span>
+                            </span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state__title">Подборок пока нет</div>
+                <div class="empty-state__text">Создайте первую и добавьте в неё нужные статьи.</div>
+            </div>
+        {% endif %}
+    </div></div>
+{% endblock %}

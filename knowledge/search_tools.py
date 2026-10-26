@@ -20,9 +20,10 @@ def ranked_articles(query):
         title = words(article.title)
         body = words(strip_tags(article.content))
         section = words(article.section.name) if article.section else []
+        keywords = words(article.keywords)
         scores = []
         for token in tokens:
-            scores.append(40 if token in title else 30 if any(w.startswith(token) for w in title) else 12 if token in section else 8 if any(w.startswith(token) for w in section) else 6 if len(token) >= 2 and token in body else 3 if len(token) >= 3 and any(w.startswith(token) for w in body) else 0)
+            scores.append(40 if token in title else 30 if any(w.startswith(token) for w in title) else 20 if token in keywords else 12 if token in section else 8 if any(w.startswith(token) for w in section) else 6 if len(token) >= 2 and token in body else 3 if len(token) >= 3 and any(w.startswith(token) for w in body) else 0)
         if all(scores):
             title_phrase = ' '.join(title)
             bonus = 200 if title_phrase == phrase else 100 if title_phrase.startswith(phrase) else 60 if phrase in title_phrase else 0

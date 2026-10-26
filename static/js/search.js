@@ -21,14 +21,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 serial = 0,
                 active = -1;
             function position() {
-                const rect = form.getBoundingClientRect();
+                // Верхний поиск без рамки: список начинается под текстом, а не под лупой.
+                // Поиск в рамке (главная, страница поиска): список ровно по краям рамки.
+                const rect = form.getBoundingClientRect(),
+                    left = form.classList.contains('header-search')
+                        ? input.getBoundingClientRect().left
+                        : rect.left;
                 const width = Math.min(
-                    Math.max(rect.width, 300),
+                    Math.max(rect.right - left, 300),
                     innerWidth - 24,
                 );
                 panel.style.width = width + 'px';
                 panel.style.left =
-                    Math.max(12, Math.min(rect.left, innerWidth - width - 12)) +
+                    Math.max(12, Math.min(left, innerWidth - width - 12)) +
                     'px';
                 panel.style.top = rect.bottom + 6 + 'px';
                 panel.style.maxHeight =
@@ -92,9 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 180);
             }
             input.addEventListener('input', suggest);
-            input.addEventListener('focus', () => {
-                if (input.value.trim()) suggest();
-            });
+            // На странице поиска результаты уже показаны: подсказки только при вводе.
+            if (!form.classList.contains('search-form'))
+                input.addEventListener('focus', () => {
+                    if (input.value.trim()) suggest();
+                });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     ++serial;

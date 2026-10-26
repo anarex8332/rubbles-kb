@@ -1,3 +1,4 @@
+import re
 import bleach
 from pathlib import Path
 from PIL import Image
@@ -7,7 +8,7 @@ from django.utils.html import strip_tags
 STICKERS = {'thanks': 'Спасибо!', 'done': 'Готово', 'idea': 'Есть идея', 'agree': 'Согласен', 'question': 'Есть вопрос', 'great': 'Отлично!'}
 
 def clean_comment(data, files, existing_count=0):
-    html = bleach.clean(data.get('text_html', ''), tags=['p', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'ul', 'ol', 'li', 'blockquote'], attributes={}, strip=True)
+    html = bleach.clean(data.get('text_html', ''), tags=['p', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'ul', 'ol', 'li', 'blockquote', 'span'], attributes={'span': lambda tag, name, value: name == 'class' and re.fullmatch(r'fs-(s|l|xl|\d{1,2})', value) is not None}, strip=True)
     text = strip_tags(html).strip() if html else data.get('text', '').strip()
     sticker = data.get('sticker', '')
     if sticker and sticker not in STICKERS:

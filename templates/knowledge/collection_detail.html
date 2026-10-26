@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load ui %}
+{% block title %}{{ collection.title }} — RUBBLES{% endblock %}
+{% block content %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <a href="{% url 'knowledge:collection_list' %}">Подборки</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>{{ collection.title|truncatechars:50 }}</span>
+    </div>
+    <div class="page-header">
+        <h1 class="page-title">{{ collection.title }}</h1>
+        {% if collection.description %}<p class="page-description">{{ collection.description }}</p>{% endif %}
+        {% if collection.role or collection.project %}
+            <div class="collection-tags">
+                {% if collection.role %}<span class="tag">Роль: {{ collection.role }}</span>{% endif %}
+                {% if collection.project %}<span class="tag">Проект: {{ collection.project }}</span>{% endif %}
+            </div>
+        {% endif %}
+    </div>
+    <div class="card"><div class="card__body">
+        {% if items %}
+            <ol class="article-list">
+                {% for item in items %}
+                    <li class="article-list__item collection-item">
+                        <span class="collection-item__num">{{ forloop.counter }}</span>
+                        <a href="{% url 'knowledge:article_detail' item.article.slug %}" class="article-list__link">
+                            <span class="article-list__title">{{ item.article.title }}</span>
+                            {% if item.note %}<span class="collection-description">{{ item.note }}</span>{% endif %}
+                            {# Онтология, раздел 2.8 ВКР: для каждого материала подборки виден его текущий статус #}
+                            <span class="article-list__meta collection-meta">
+                                <span>{{ item.article.section.name|default:'Без раздела' }}</span>
+                                <span>{{ item.article.get_article_type_display }}</span>
+                                <span>{% if item.article.status != 'published' %}<span class="tag">{{ item.article.get_status_display }}</span> {% endif %}{% if item.article.is_outdated %}<span class="tag tag-warning">Требует пересмотра</span>
+                                {% elif item.article.last_verified_at %}<span class="tag tag-success">Проверено {{ item.article.last_verified_at|date:'d.m.Y' }}</span>
+                                {% else %}<span class="tag">Не проверено</span>{% endif %}</span>
+                                <span>Ответственный: {% if item.article.responsible %}{{ item.article.responsible.get_full_name|default:item.article.responsible.username }}{% else %}не назначен{% endif %}</span>
+                            </span>
+                            {% if item.article.scope %}<span class="collection-description">Область применения: {{ item.article.scope }}</span>{% endif %}
+                        </a>
+                        {% if can_edit %}
+                            <div class="collection-item__actions">
+                                <form method="post" action="{% url 'knowledge:collection_move_item' collection.pk item.pk %}">{% csrf_token %}
+                                    <button class="btn-icon" name="direction" value="up" type="submit" aria-label="Выше" data-tooltip="Выше"{% if forloop.first %} disabled{% endif %}>↑</button>
+                                    <button class="btn-icon" name="direction" value="down" type="submit" aria-label="Ниже" data-tooltip="Ниже"{% if forloop.last %} disabled{% endif %}>↓</button>
+                                </form>
+                                <form method="post" action="{% url 'knowledge:collection_remove_item' collection.pk item.pk %}">{% csrf_token %}
+                                    <button class="btn-icon" type="submit" aria-label="Убрать из подборки" data-tooltip="Убрать">{% icon 'x' %}</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+        {% else %}
+            <div class="empty-state"><div class="empty-state__title">В подборке пока нет статей</div></div>
+        {% endif %}
+    </div></div>
+    {% if can_edit %}
+        <div class="card"><div class="card__body">
+            <form method="post" action="{% url 'knowledge:collection_add_item' collection.pk %}" class="inline-form">{% csrf_token %}
+                <label class="sr-only" for="add-article">Статья</label>
+                <select id="add-article" name="article" required>
+                    <option value="">Добавить статью…</option>
+                    {% for a in candidates %}<option value="{{ a.pk }}">{{ a.title }}</option>{% endfor %}
+                </select>
+                <input name="note" maxlength="300" placeholder="Пояснение (необязательно)">
+                <button class="btn btn-outline" type="submit">Добавить</button>
+            </form>
+            <form method="post" action="{% url 'knowledge:collection_delete' collection.pk %}" onsubmit="return confirm('Удалить подборку? Сами статьи останутся.')">{% csrf_token %}
+                <button class="btn btn-outline btn-sm" type="submit">Удалить подборку</button>
+            </form>
+        </div></div>
+    {% endif %}
+{% endblock %}

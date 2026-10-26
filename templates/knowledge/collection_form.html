@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load ui %}
+{% block title %}Новая подборка — RUBBLES{% endblock %}
+{% block content %}
+    <div class="breadcrumbs">
+        <a href="{% url 'knowledge:home' %}">Главная</a>
+        <span class="breadcrumbs__sep">/</span>
+        <a href="{% url 'knowledge:collection_list' %}">Подборки</a>
+        <span class="breadcrumbs__sep">/</span>
+        <span>Новая подборка</span>
+    </div>
+    <div class="page-header"><h1 class="page-title">Новая подборка</h1></div>
+    <div class="card"><div class="card__body">
+        <form method="post" class="source-form">{% csrf_token %}
+            <label class="settings-wide">Название
+                <input name="title" maxlength="300" required value="{{ form.title.value|default:'' }}">
+            </label>
+            {{ form.title.errors }}
+            <label class="settings-wide">Для кого и зачем
+                <textarea name="description" rows="3">{{ form.description.value|default:'' }}</textarea>
+            </label>
+            <label class="settings-wide">Роль
+                <input name="role" maxlength="120" placeholder="Например: аналитик" value="{{ form.role.value|default:'' }}">
+            </label>
+            <label class="settings-wide">Проект или продукт
+                <input name="project" maxlength="200" placeholder="Например: Планирование спроса" value="{{ form.project.value|default:'' }}">
+            </label>
+            <button class="btn btn-primary" type="submit">Создать</button>
+        </form>
+    </div></div>
+{% endblock %}

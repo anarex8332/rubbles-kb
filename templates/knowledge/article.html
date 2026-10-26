@@ -14,53 +14,30 @@
     <header class="article-header">
         <div class="article-kicker">
             <span class="tag">{{ article.section.name|default:'Без раздела' }}</span>
+            <span class="tag">{{ article.get_article_type_display }}</span>
+            {% if article.status == 'archived' %}<span class="tag tag-warning">В архиве</span>{% endif %}
+            {% if article.status == 'draft' %}<span class="tag">Черновик</span>{% endif %}
             {% if article.is_outdated %}
                 <span class="tag tag-warning">Требует пересмотра</span>{% elif article.last_verified_at %}
-                <span class="tag tag-success">Актуальность подтверждена</span>{% else %}
+                <span class="tag tag-success">Проверено {{ article.last_verified_at|date:'d.m.Y' }}</span>{% else %}
                 <span class="tag">Не проверено</span>
             {% endif %}
         </div>
         <h1 class="article-title">{{ article.title }}</h1>
+        {% if article.scope or article.keywords %}
+            <p class="muted article-meta">
+                {% if article.scope %}Область применения: {{ article.scope }}{% endif %}
+                {% if article.scope and article.keywords %} · {% endif %}
+                {% if article.keywords %}Ключевые слова: {{ article.keywords }}{% endif %}
+            </p>
+        {% endif %}
+    </header>
+    <div class="article-bar" id="article-bar">
         <div class="article-byline">
             <span>Автор: {{ article.author.username|default:'—' }}</span>
-            <span>Обновлено {{ article.updated_at|date:'d.m.Y' }}</span>
-            <span>Версия {{ article.version }}</span>
-        </div>
-        <div class="article-actions">
-            <a href="{% url 'knowledge:article_edit' article.slug %}" class="btn btn-primary">{% icon 'pencil' %} Редактировать</a>
-            <a href="{% url 'knowledge:toggle_bookmark' article.slug %}" class="btn btn-outline" aria-label="{% if is_bookmarked %}Удалить из закладок{% else %}Добавить в закладки{% endif %}">{% icon 'bookmark' %}
-                <span>
-                    {% if is_bookmarked %}В закладках{% else %}В закладки{% endif %}
-                </span>
-            </a>
-            <details class="action-menu">
-                <summary class="btn btn-outline" aria-label="Другие действия">{% icon 'ellipsis' %}
-                </summary>
-                <div class="action-menu__panel">
-                    <a href="{% url 'knowledge:article_version_history' article.slug %}">{% icon 'clock' %} История версий</a>
-                    <button type="button" data-copy-link>{% icon 'link' %} Копировать ссылку</button>
-                    <form action="{% url 'knowledge:mark_outdated' article.slug %}" method="post">{% csrf_token %}
-                        <button type="submit">{% icon 'flag' %}
-                            {% if article.is_outdated %}Снять отметку устаревания{% else %}Пометить устаревшей{% endif %}
-                        </button>
-                    </form>
-                    <form action="{% url 'knowledge:confirm_fresh' article.slug %}" method="post">{% csrf_token %}
-                        <button type="submit">{% icon 'circle-check' %} Подтвердить актуальность</button>
-                    </form>
-                </div>
-            </details>
-            <span id="copy-feedback" class="form-help" role="status">
-            </span>
-        </div>
-    </header>
-    <div class="article-layout">
-        <div class="article-reading">
-            <details class="article-management">
-                <summary>Ответственный и проверка {% icon 'chevron-down' %}
-                </summary>
-                <div class="management-body">
-                    <p>Ответственный: <strong>{{ article.responsible.username|default:'не назначен' }}</strong>
-                    </p>
+            <details class="byline-responsible">
+                <summary>Ответственный: <strong>{% if article.responsible %}{{ article.responsible.get_full_name|default:article.responsible.username }}{% else %}не назначен{% endif %}</strong>{% icon 'chevron-down' %}</summary>
+                <div class="byline-responsible__panel">
                     <p class="muted">
                         {% if article.last_verified_at %}Проверено {{ article.last_verified_at|date:'d.m.Y' }}{% if article.last_verified_by %} — {{ article.last_verified_by.username }}{% endif %}
                         {% else %}Актуальность содержания ещё не подтверждена.{% endif %}
@@ -75,8 +52,57 @@
                         </select>
                         <button class="btn btn-outline btn-sm" type="submit">Сохранить</button>
                     </form>
+                    {% if can_confirm %}
+                        <form action="{% url 'knowledge:confirm_fresh' article.slug %}" method="post">{% csrf_token %}
+                            <button class="btn btn-primary btn-sm" type="submit">{% icon 'circle-check' %} Подтвердить актуальность</button>
+                        </form>
+                    {% endif %}
                 </div>
             </details>
+            <span>Обновлено {{ article.updated_at|date:'d.m.Y' }}</span>
+            <span>Версия {{ article.version }}</span>
+        </div>
+        <div class="article-actions">
+            <a href="{% url 'knowledge:article_edit' article.slug %}" class="btn btn-primary">{% icon 'pencil' %} Редактировать</a>
+            <button type="button" class="btn btn-outline remark-add" id="remark-add" aria-label="Добавить замечание к выделенному тексту" data-tooltip="Добавить замечание">{% icon 'message-circle' %}</button>
+            <a href="{% url 'knowledge:toggle_bookmark' article.slug %}" class="btn btn-outline bookmark-toggle{% if is_bookmarked %} is-bookmarked{% endif %}" aria-label="{% if is_bookmarked %}В закладках, нажмите, чтобы убрать{% else %}В закладки{% endif %}" data-tooltip="{% if is_bookmarked %}В закладках{% else %}В закладки{% endif %}">{% icon 'bookmark' %}</a>
+            <details class="action-menu">
+                <summary class="btn btn-outline" aria-label="Другие действия">{% icon 'ellipsis' %}
+                </summary>
+                <div class="action-menu__panel">
+                    <a href="{% url 'knowledge:article_version_history' article.slug %}">{% icon 'clock' %} История версий</a>
+                    <button type="button" data-copy-link>{% icon 'link' %} Копировать ссылку</button>
+                    <form action="{% url 'knowledge:mark_outdated' article.slug %}" method="post">{% csrf_token %}
+                        <button type="submit">{% icon 'flag' %}
+                            {% if article.is_outdated %}Снять отметку устаревания{% else %}Пометить устаревшей{% endif %}
+                        </button>
+                    </form>
+                    {% if can_confirm %}
+                    <form action="{% url 'knowledge:confirm_fresh' article.slug %}" method="post">{% csrf_token %}
+                        <button type="submit">{% icon 'circle-check' %} Подтвердить актуальность</button>
+                    </form>
+                    {% endif %}
+                    <details class="action-submenu">
+                        <summary>{% icon 'file-text' %} Скачать {% icon 'chevron-down' %}</summary>
+                        <a href="{% url 'knowledge:export_article_docx' article.slug %}?format=docx">Word (.docx)</a>
+                        <a href="{% url 'knowledge:export_article_docx' article.slug %}?format=pdf">PDF (.pdf)</a>
+                    </details>
+                    <form action="{% url 'knowledge:archive_article' article.slug %}" method="post">{% csrf_token %}
+                        <button type="submit">{% icon 'flag' %}
+                            {% if article.status == 'archived' %}Вернуть из архива{% else %}Перенести в архив{% endif %}
+                        </button>
+                    </form>
+                </div>
+            </details>
+            <span id="copy-feedback" class="form-help" role="status">
+            </span>
+        </div>
+    </div>
+    <div class="article-layout">
+        <div class="article-reading">
+            {% if article.status == 'archived' %}
+                <p class="empty-state">Статья находится в архиве: она открыта по прямой ссылке и не показывается в поиске и списках.</p>
+            {% endif %}
             <article class="article-content" id="article-content">{{ article.content|safe }}</article>
             <section class="article-support">
                 <div class="section-heading">
@@ -86,11 +112,13 @@
                     {% for link in article.related_links.all %}
                         <li>
                             <span class="tag">{{ link.get_link_type_display }}</span>
-                            <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label|default:link.url }}</a>
+                            <a href="{{ link.url }}" target="_blank" rel="noopener"{% if link.label %} title="{{ link.label }}"{% endif %}>{{ link.url }}</a>
+                            {% if not link.from_text %}
                             <form method="post" action="{% url 'knowledge:delete_related_link' article.slug link.pk %}">{% csrf_token %}
                                 <button class="btn-icon" type="submit" aria-label="Удалить связь {{ link.label|default:link.url }}">{% icon 'x' %}
                                 </button>
                             </form>
+                            {% endif %}
                         </li>
                     {% empty %}
                         <li class="muted">Связанных источников пока нет.</li>
@@ -117,6 +145,32 @@
                     </form>
                 </details>
             </section>
+            <section class="article-support">
+                <div class="section-heading">
+                    <h2>Подборки</h2>
+                </div>
+                <ul class="related-links">
+                    {% for item in in_collections %}
+                        <li><a href="{% url 'knowledge:collection_detail' item.collection.pk %}">{{ item.collection.title }}</a></li>
+                    {% empty %}
+                        <li class="muted">Статья пока не входит ни в одну подборку.</li>
+                    {% endfor %}
+                </ul>
+                {% if my_collections and article.status == 'published' %}
+                    <form method="post" class="inline-form">{% csrf_token %}
+                        <input type="hidden" name="article" value="{{ article.pk }}">
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <label class="sr-only" for="collection-pick">Подборка</label>
+                        <select id="collection-pick" onchange="this.form.action=this.value" required>
+                            <option value="">Добавить в подборку…</option>
+                            {% for c in my_collections %}
+                                <option value="{% url 'knowledge:collection_add_item' c.pk %}">{{ c.title }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-outline btn-sm" type="submit">Добавить</button>
+                    </form>
+                {% endif %}
+            </section>
             {% if article.allow_comments %}
                 <section class="article-support comments-section">
                     <div class="section-heading">
@@ -129,20 +183,17 @@
                                 <div class="comment__header">
                                     <strong>{{ comment.author.username }}</strong>
                                     <time>{{ comment.created_at|date:'d.m.Y H:i' }}</time>
-                                    {% if comment.is_resolved %}
-                                        <span class="tag tag-success">Разрешено</span>
-                                    {% endif %}
                                 </div>
                                 <div class="comment__text">{% if comment.text_html %}{{ comment.text_html|safe }}{% else %}{{ comment.text|linebreaksbr }}{% endif %}</div>
                                 <div class="comment-attachments">{% for attachment in comment.attachments.all %}
                                     <a href="{% url 'knowledge:comment_attachment' attachment.pk %}" target="_blank" rel="noopener">{% if attachment.is_image %}<img src="{% url 'knowledge:comment_attachment' attachment.pk %}" alt="{{ attachment.name }}" loading="lazy">{% endif %}<span>{{ attachment.name }}</span></a>
                                 {% endfor %}</div>
                                 {% if comment.author_id == user.pk %}<details class="comment-edit"><summary class="comment-edit-icon" aria-label="Редактировать комментарий" title="Редактировать комментарий">{% icon 'pencil' %}</summary>{% include 'knowledge/_comment_editor.html' with editing=True %}</details>{% endif %}
-                                <form action="{% url 'knowledge:toggle_comment_resolved' article.slug comment.pk %}" method="post">{% csrf_token %}
-                                    <button type="submit" class="btn btn-link btn-sm">
-                                        {% if comment.is_resolved %}Вернуть в обсуждение{% else %}Отметить разрешённым{% endif %}
-                                    </button>
+                                {% if comment.can_delete %}
+                                <form action="{% url 'knowledge:delete_comment' article.slug comment.pk %}" method="post" onsubmit="return confirm('Удалить комментарий?')">{% csrf_token %}
+                                    <button type="submit" class="btn btn-link btn-sm">Удалить</button>
                                 </form>
+                                {% endif %}
                             </article>
                         {% empty %}
                             <p class="empty-state">Обсуждение пока пусто. Первый комментарий может быть вашим.</p>
@@ -152,20 +203,53 @@
                 </section>
             {% endif %}
         </div>
-        <aside class="article-toc" id="article-toc" hidden>
-            <details open>
-                <summary>На этой странице {% icon 'chevron-down' %}
-                </summary>
-                <nav aria-label="Оглавление статьи">
-                </nav>
-            </details>
-        </aside>
+        <div class="article-side">
+            <aside class="article-toc" id="article-toc" hidden>
+                <details>
+                    <summary>На этой странице {% icon 'chevron-down' %}
+                    </summary>
+                    <nav aria-label="Оглавление статьи">
+                    </nav>
+                </details>
+            </aside>
+            <section class="remarks" id="remarks" aria-label="Замечания к тексту">
+                <h2 class="remarks__title">Замечания <span class="muted">{{ remarks|length }}</span></h2>
+                <form class="remark-form" id="remark-form" method="post" action="{% url 'knowledge:add_remark' article.slug %}" hidden>{% csrf_token %}
+                    <blockquote class="remark-form__quote"></blockquote>
+                    <input type="hidden" name="quote">
+                    <input type="hidden" name="prefix">
+                    <input type="hidden" name="suffix">
+                    <input type="hidden" name="position">
+                    <label class="sr-only" for="remark-text">Текст замечания</label>
+                    <textarea id="remark-text" name="text" rows="3" required placeholder="Что не так в этом фрагменте?"></textarea>
+                    <div class="remark-form__actions">
+                        <button class="btn btn-primary btn-sm" type="submit">Сохранить</button>
+                        <button class="btn btn-outline btn-sm" type="button" data-remark-cancel>Отмена</button>
+                    </div>
+                </form>
+                <p class="remarks__hint" id="remark-hint" hidden>Выделите текст статьи, затем нажмите кнопку замечания.</p>
+                {% for remark in remarks %}
+                    {% include 'knowledge/_remark.html' %}
+                {% empty %}
+                    <p class="remarks__empty muted">Замечаний нет. Чтобы оставить замечание, выделите текст и нажмите {% icon 'message-circle' %}.</p>
+                {% endfor %}
+                {% if resolved_remarks %}
+                    <details class="remarks__resolved">
+                        <summary>Решённые ({{ resolved_remarks|length }})</summary>
+                        {% for remark in resolved_remarks %}
+                            {% include 'knowledge/_remark.html' %}
+                        {% endfor %}
+                    </details>
+                {% endif %}
+            </section>
+        </div>
     </div>
 {% endblock %}
 {% block extra_scripts %}
     <script src="{% static 'js/comments.js' %}?v=20261009-4" defer></script>
     <script src="{% static 'vendor/mermaid.min.js' %}">
     </script>
+    <script src="{% static 'js/remarks.js' %}" defer></script>
     <script src="{% static 'js/article.js' %}">
     </script>
 {% endblock %}

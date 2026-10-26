@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
         title.value = pendingDraft.title || '';
         editor.innerHTML = pendingDraft.content;
         section.value = pendingDraft.section || '';
+        section.dispatchEvent(new Event('rubbles:refresh'));
         comments.checked = !!pendingDraft.allow_comments;
         if (form.elements.change_summary)
             form.elements.change_summary.value =
@@ -138,15 +139,26 @@ document.addEventListener('DOMContentLoaded', () => {
             current.addRange(selection);
         }
     }
+    function csrfToken() {
+        const field = document.querySelector('[name=csrfmiddlewaretoken]');
+        return field ? field.value : '';
+    }
     function image(file) {
         if (!file || !file.type.startsWith('image/')) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            focusSelection();
-            document.execCommand('insertImage', false, reader.result);
-            changed();
-        };
-        reader.readAsDataURL(file);
+        const body = new FormData();
+        body.append('image', file);
+        indicator.textContent = 'Загружаю изображение…';
+        fetch('/images/upload/', {
+            method: 'POST', body, credentials: 'same-origin',
+            headers: {'X-CSRFToken': csrfToken()},
+        }).then((response) => response.json().then((data) => ({ok: response.ok, data})))
+            .then(({ok, data}) => {
+                if (!ok) { indicator.textContent = data.error || 'Не удалось загрузить изображение.'; return; }
+                focusSelection();
+                document.execCommand('insertImage', false, data.url);
+                changed();
+            })
+            .catch(() => { indicator.textContent = 'Не удалось загрузить изображение.'; });
     }
     const imageInput = document.getElementById('image-input');
     imageInput.addEventListener('change', () => {
@@ -179,6 +191,20 @@ document.addEventListener('DOMContentLoaded', () => {
             changed();
         });
     });
+    document.querySelectorAll('[data-font-size]').forEach((select) => {
+        let saved = null;
+        select.addEventListener('mousedown', () => {
+            const s = window.getSelection();
+            if (s.rangeCount && editor.contains(s.anchorNode)) saved = s.getRangeAt(0).cloneRange();
+        });
+        select.addEventListener('change', () => {
+            editor.focus();
+            if (saved) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(saved); }
+            window.applyFontSize(editor, select.value);
+            select.selectedIndex = 0;
+            changed();
+        });
+    });
     const preview = document.getElementById('preview-toggle');
     preview.addEventListener('click', () => {
         const active = preview.getAttribute('aria-pressed') !== 'true';
@@ -187,8 +213,52 @@ document.addEventListener('DOMContentLoaded', () => {
         editor.contentEditable = String(!active);
         editor.classList.toggle('editor-content--preview', active);
         document
-            .querySelectorAll('[data-cmd]')
+            .querySelectorAll('[data-cmd], [data-font-size]')
             .forEach((b) => (b.disabled = active));
+    });
+    // Ширина столбцов таблицы: потяните за правую границу ячейки.
+    const EDGE = 6;
+    function edgeCell(e) {
+        if (editor.contentEditable !== 'true') return null;
+        const cell = e.target.closest?.('td,th');
+        if (!cell || !editor.contains(cell)) return null;
+        const rect = cell.getBoundingClientRect();
+        return rect.right - e.clientX <= EDGE ? cell : null;
+    }
+    editor.addEventListener('mousemove', (e) => {
+        if (!document.body.classList.contains('is-col-resizing'))
+            editor.classList.toggle('is-col-resize', !!edgeCell(e));
+    });
+    editor.addEventListener('mouseleave', () =>
+        editor.classList.remove('is-col-resize'),
+    );
+    editor.addEventListener('mousedown', (e) => {
+        const cell = edgeCell(e);
+        if (!cell || e.button !== 0) return;
+        e.preventDefault();
+        const table = cell.closest('table'),
+            index = cell.cellIndex,
+            startX = e.clientX,
+            startWidth = cell.getBoundingClientRect().width;
+        const column = [...table.rows]
+            .map((row) => row.cells[index])
+            .filter((c) => c && c.colSpan === 1);
+        document.body.classList.add('is-col-resizing');
+        const move = (ev) => {
+            const width = Math.round(
+                Math.max(40, Math.min(2000, startWidth + ev.clientX - startX)),
+            );
+            column.forEach((c) => c.setAttribute('width', width));
+        };
+        const up = () => {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', up);
+            document.body.classList.remove('is-col-resizing');
+            editor.classList.remove('is-col-resize');
+            changed();
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
     });
     editor.addEventListener('dragover', (e) => e.preventDefault());
     editor.addEventListener('drop', (e) => {

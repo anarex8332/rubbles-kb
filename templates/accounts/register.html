@@ -3,9 +3,9 @@
 {% block title %}Регистрация — RUBBLES{% endblock %}
 {% block auth_content %}
     <div class="auth-form-heading">
-        <span class="muted">Присоединиться к команде</span>
-        <h2>Создать аккаунт</h2>
-        <p>Ваше пространство для совместной работы со знаниями.</p>
+        <span class="muted">Только для администратора</span>
+        <h2>Создать пользователя</h2>
+        <p>Учётные записи сотрудников создаёт администратор.</p>
     </div>
     <form method="post" class="auth-form">{% csrf_token %}
         {% for field in form %}
@@ -20,6 +20,5 @@
         {% endfor %}{{ form.non_field_errors }}<button class="btn btn-primary btn-block" type="submit">Создать аккаунт {% icon 'arrow-right' %}
         </button>
     </form>
-    <p class="form-footer">Уже есть аккаунт? <a href="{% url 'login' %}">Войти</a>
-    </p>
+    <p class="form-footer"><a href="{% url 'knowledge:home' %}">На главную</a></p>
 {% endblock %}

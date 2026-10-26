@@ -4,7 +4,7 @@
 
 {% block content %}
     <div class="page-header page-header--with-icon">
-        <div class="page-header__icon">{% icon 'folder' '' %}
+        <div class="page-header__icon">{% icon section|section_icon '' %}
         </div>
         <div class="page-header__content">
             <h1 class="page-title">{{ section.name }}</h1>
@@ -68,7 +68,7 @@
                 <div class="empty-state">
                     <div class="empty-state__icon">{% icon 'file-text' '' %}
                     </div>
-                    <div class="empty-state__title">В этом разделе пока нет статей</div>
+                    <div class="empty-state__title">{% if sub_sections %}Статьи этого раздела находятся в подразделах выше{% else %}В этом разделе пока нет статей{% endif %}</div>
                     {% if user.is_authenticated %}
                         <div class="empty-state__text">
                             <a href="{% url 'knowledge:article_create' %}?section={{ section.id }}">Создать первую</a>
