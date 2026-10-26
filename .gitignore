@@ -25,3 +25,6 @@ media/
 staticfiles/
 venv/
 venv_local/
+
+_tmp_site_packages.tgz
+.claude/
